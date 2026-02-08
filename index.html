@@ -751,8 +751,8 @@
     </style>
 </head>
 <body>
-    <!-- Login Screen -->
-    <div class="login-screen" id="loginScreen">
+    <!-- Login Screen (hidden in demo mode) -->
+    <div class="login-screen hidden" id="loginScreen">
         <div class="login-logo">🎯</div>
         <h1 class="login-title">Field Ops Tracker</h1>
         <p class="login-subtitle">Bob & Zac Only</p>
@@ -789,8 +789,7 @@
             <div class="header-top">
                 <h1 class="header-title">🎯 Field Ops</h1>
                 <div class="header-user">
-                    <span class="user-badge" id="userName">Bob</span>
-                    <button class="logout-btn" onclick="logout()">Logout</button>
+                    <span class="user-badge">Demo Mode</span>
                 </div>
             </div>
             <div class="mode-toggle">
@@ -1494,12 +1493,9 @@
         
         // ========== INIT ==========
         function init() {
-            // Check for saved session
-            const savedUser = localStorage.getItem('fieldops-user');
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
-                showApp();
-            }
+            // Demo mode - no PIN required, straight to app
+            currentUser = { name: 'Demo', role: 'owner' };
+            showApp();
             
             // Add some demo data if empty
             if (staff.length === 0) {
