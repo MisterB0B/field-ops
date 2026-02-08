@@ -623,15 +623,59 @@
             padding: 20px;
         }
         
+        .checklist-category {
+            margin-bottom: 24px;
+        }
+        
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .category-name {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-purple);
+        }
+        
+        .category-progress {
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+        
+        .category-progress.complete {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--status-green);
+        }
+        
         .checklist-item {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 16px;
+            padding: 14px;
             background: var(--bg-card);
             border-radius: 12px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        
+        .checklist-item.done {
+            opacity: 0.6;
+            background: var(--bg-secondary);
+        }
+        
+        .checklist-item.done .checklist-title {
+            text-decoration: line-through;
         }
         
         .checklist-checkbox {
@@ -884,26 +928,103 @@
         ];
         
         const BUILD_TASKS = [
-            { id: 'arrival', title: 'Arrived On Site', photo: false },
-            { id: 'safety-check', title: 'Safety Inspection Complete', photo: true },
-            { id: 'team-briefing', title: 'Team Briefing Done', photo: false },
-            { id: 'equipment-check', title: 'Equipment Inventory Verified', photo: true },
-            { id: 'work-progress', title: 'Daily Progress Update', photo: true },
-            { id: 'issue-report', title: 'Issues Documented', photo: false },
-            { id: 'end-of-day', title: 'End of Day Report', photo: true },
-            { id: 'site-secured', title: 'Site Secured & Locked', photo: false }
+            // === ARRIVAL & SETUP ===
+            { id: 'arrival', title: 'Arrived On Site', photo: false, category: 'Arrival' },
+            { id: 'gps-checkin', title: 'GPS Check-In Verified', photo: false, category: 'Arrival' },
+            { id: 'team-headcount', title: 'Team Headcount Confirmed', photo: false, category: 'Arrival' },
+            { id: 'team-briefing', title: 'Daily Briefing / Task Assignment', photo: false, category: 'Arrival' },
+            
+            // === SAFETY ===
+            { id: 'safety-walk', title: 'Safety Walkthrough Complete', photo: true, category: 'Safety' },
+            { id: 'ppe-check', title: 'PPE Check - All Team', photo: false, category: 'Safety' },
+            { id: 'hazard-clear', title: 'Hazards Cleared / Marked', photo: true, category: 'Safety' },
+            { id: 'first-aid', title: 'First Aid Kit Stocked', photo: false, category: 'Safety' },
+            
+            // === EQUIPMENT & MATERIALS ===
+            { id: 'equipment-check', title: 'Equipment Inventory Verified', photo: true, category: 'Equipment' },
+            { id: 'tools-accounted', title: 'Tools Accounted For', photo: false, category: 'Equipment' },
+            { id: 'materials-received', title: 'Materials Delivery Received', photo: true, category: 'Equipment' },
+            { id: 'forklift-check', title: 'Forklift / Lift Equipment Checked', photo: false, category: 'Equipment' },
+            
+            // === BUILD PROGRESS ===
+            { id: 'zone-a-progress', title: 'Zone A Progress Update', photo: true, category: 'Build' },
+            { id: 'zone-b-progress', title: 'Zone B Progress Update', photo: true, category: 'Build' },
+            { id: 'zone-c-progress', title: 'Zone C Progress Update', photo: true, category: 'Build' },
+            { id: 'prop-assembly', title: 'Prop Assembly Status', photo: true, category: 'Build' },
+            { id: 'wiring-progress', title: 'Wiring / Electrical Progress', photo: true, category: 'Build' },
+            { id: 'structural-check', title: 'Structural Integrity Check', photo: false, category: 'Build' },
+            
+            // === QUALITY ===
+            { id: 'quality-spot', title: 'Quality Spot Check', photo: true, category: 'Quality' },
+            { id: 'alignment-check', title: 'Prop Alignment Verified', photo: false, category: 'Quality' },
+            { id: 'paint-touch', title: 'Paint / Touch-Up Complete', photo: true, category: 'Quality' },
+            
+            // === ISSUES & BLOCKERS ===
+            { id: 'issues-logged', title: 'Issues Documented in App', photo: false, category: 'Issues' },
+            { id: 'blockers-reported', title: 'Blockers Reported to Bob/Zac', photo: false, category: 'Issues' },
+            { id: 'missing-parts', title: 'Missing Parts List Updated', photo: false, category: 'Issues' },
+            
+            // === END OF DAY ===
+            { id: 'tools-secured', title: 'Tools Secured / Locked Up', photo: false, category: 'Closeout' },
+            { id: 'materials-covered', title: 'Materials Covered / Protected', photo: true, category: 'Closeout' },
+            { id: 'area-cleaned', title: 'Work Area Cleaned', photo: true, category: 'Closeout' },
+            { id: 'site-secured', title: 'Site Secured & Gates Locked', photo: true, category: 'Closeout' },
+            { id: 'eod-report', title: 'End of Day Report Submitted', photo: false, category: 'Closeout' },
+            { id: 'tomorrow-plan', title: 'Tomorrow\'s Plan Confirmed', photo: false, category: 'Closeout' }
         ];
         
         const SHOW_TASKS = [
-            { id: 'arrival', title: 'Arrived On Site', photo: false },
-            { id: 'pre-show-walk', title: 'Pre-Show Walkthrough', photo: true },
-            { id: 'pixel-check', title: 'Pixel Systems Check', photo: false },
-            { id: 'audio-check', title: 'Audio Systems Check', photo: false },
-            { id: 'generator-fuel', title: 'Generator Fuel Level', photo: true },
-            { id: 'show-start', title: 'Show Started On Time', photo: false },
-            { id: 'mid-show-check', title: 'Mid-Show Status Check', photo: false },
-            { id: 'show-end', title: 'Show Ended / Shutdown Complete', photo: true },
-            { id: 'nightly-report', title: 'Nightly Report Submitted', photo: false }
+            // === ARRIVAL ===
+            { id: 'arrival', title: 'Arrived On Site', photo: false, category: 'Arrival' },
+            { id: 'gps-checkin', title: 'GPS Check-In Verified', photo: false, category: 'Arrival' },
+            { id: 'uniform-check', title: 'Uniform / Badge On', photo: false, category: 'Arrival' },
+            { id: 'radio-check', title: 'Radio Check Complete', photo: false, category: 'Arrival' },
+            
+            // === PRE-SHOW SYSTEMS ===
+            { id: 'pre-walk', title: 'Pre-Show Walkthrough', photo: true, category: 'Pre-Show' },
+            { id: 'pixel-power', title: 'All Pixel Controllers Powered', photo: false, category: 'Pre-Show' },
+            { id: 'pixel-test', title: 'Pixel Test Sequence Run', photo: true, category: 'Pre-Show' },
+            { id: 'dead-pixels', title: 'Dead Pixels Documented', photo: true, category: 'Pre-Show' },
+            { id: 'audio-test', title: 'Audio System Test', photo: false, category: 'Pre-Show' },
+            { id: 'speaker-check', title: 'All Speakers Verified', photo: false, category: 'Pre-Show' },
+            { id: 'fm-transmitter', title: 'FM Transmitter Online', photo: false, category: 'Pre-Show' },
+            
+            // === POWER & GENERATORS ===
+            { id: 'generator-start', title: 'Generators Started', photo: false, category: 'Power' },
+            { id: 'generator-fuel', title: 'Generator Fuel Level Checked', photo: true, category: 'Power' },
+            { id: 'generator-oil', title: 'Generator Oil Level Checked', photo: false, category: 'Power' },
+            { id: 'power-distro', title: 'Power Distribution Verified', photo: false, category: 'Power' },
+            { id: 'backup-ready', title: 'Backup Power Ready', photo: false, category: 'Power' },
+            
+            // === NETWORK & SYNC ===
+            { id: 'fpp-sync', title: 'FPP Players Synced', photo: false, category: 'Network' },
+            { id: 'network-check', title: 'Network / WiFi Verified', photo: false, category: 'Network' },
+            { id: 'master-player', title: 'Master Player Online', photo: false, category: 'Network' },
+            
+            // === VENUE READY ===
+            { id: 'entrance-ready', title: 'Entrance Gates Ready', photo: false, category: 'Venue' },
+            { id: 'exit-clear', title: 'Exit Path Clear', photo: false, category: 'Venue' },
+            { id: 'tent-check', title: 'Tent Manager Check-In', photo: false, category: 'Venue' },
+            { id: 'safety-lane', title: 'Safety Lane Clear', photo: false, category: 'Venue' },
+            { id: 'cones-placed', title: 'Traffic Cones Placed', photo: true, category: 'Venue' },
+            
+            // === SHOW RUNNING ===
+            { id: 'show-start', title: 'Show Started On Time', photo: false, category: 'Show' },
+            { id: 'first-car', title: 'First Car Entered', photo: false, category: 'Show' },
+            { id: 'mid-show-check', title: 'Mid-Show Systems Check', photo: false, category: 'Show' },
+            { id: 'issue-handled', title: 'Issues Handled / Escalated', photo: false, category: 'Show' },
+            { id: 'crowd-flow', title: 'Traffic Flow Monitored', photo: false, category: 'Show' },
+            
+            // === POST-SHOW ===
+            { id: 'last-car', title: 'Last Car Exited', photo: false, category: 'Closeout' },
+            { id: 'show-stop', title: 'Show Sequence Stopped', photo: false, category: 'Closeout' },
+            { id: 'generators-off', title: 'Generators Shut Down', photo: false, category: 'Closeout' },
+            { id: 'systems-off', title: 'All Systems Powered Down', photo: false, category: 'Closeout' },
+            { id: 'site-walk', title: 'Post-Show Site Walk', photo: true, category: 'Closeout' },
+            { id: 'damage-check', title: 'Damage / Issues Documented', photo: true, category: 'Closeout' },
+            { id: 'site-secured', title: 'Site Secured & Locked', photo: true, category: 'Closeout' },
+            { id: 'nightly-report', title: 'Nightly Report Submitted', photo: false, category: 'Closeout' },
+            { id: 'car-count', title: 'Car Count Logged', photo: false, category: 'Closeout' }
         ];
         
         // ========== STATE ==========
@@ -1133,28 +1254,49 @@
             const container = document.getElementById('checklistItems');
             const tasks = getVenueTasks(venueId);
             
-            container.innerHTML = tasks.map(task => {
-                const isComplete = isTaskComplete(venueId, task.id);
-                const taskData = getTaskData(venueId, task.id);
-                
-                return `
-                    <div class="checklist-item">
-                        <div class="checklist-checkbox ${isComplete ? 'checked' : ''}" 
-                             onclick="toggleTask('${venueId}', '${task.id}')">
-                            ${isComplete ? '✓' : ''}
+            // Group tasks by category
+            const grouped = {};
+            tasks.forEach(task => {
+                const cat = task.category || 'Other';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(task);
+            });
+            
+            let html = '';
+            for (const [category, categoryTasks] of Object.entries(grouped)) {
+                const completedInCat = categoryTasks.filter(t => isTaskComplete(venueId, t.id)).length;
+                html += `
+                    <div class="checklist-category">
+                        <div class="category-header">
+                            <span class="category-name">${category}</span>
+                            <span class="category-progress ${completedInCat === categoryTasks.length ? 'complete' : ''}">${completedInCat}/${categoryTasks.length}</span>
                         </div>
-                        <div class="checklist-content">
-                            <h4 class="checklist-title">${task.title}</h4>
-                            ${isComplete ? `
-                                <p class="checklist-meta">
-                                    Completed by ${taskData.completedBy || 'Staff'} at ${formatTime(taskData.completedAt)}
-                                </p>
-                            ` : ''}
-                            ${task.photo ? '<span class="photo-required">📷 Photo Required</span>' : ''}
-                        </div>
+                        ${categoryTasks.map(task => {
+                            const isComplete = isTaskComplete(venueId, task.id);
+                            const taskData = getTaskData(venueId, task.id);
+                            
+                            return `
+                                <div class="checklist-item ${isComplete ? 'done' : ''}">
+                                    <div class="checklist-checkbox ${isComplete ? 'checked' : ''}" 
+                                         onclick="toggleTask('${venueId}', '${task.id}')">
+                                        ${isComplete ? '✓' : ''}
+                                    </div>
+                                    <div class="checklist-content">
+                                        <h4 class="checklist-title">${task.title}</h4>
+                                        ${isComplete ? `
+                                            <p class="checklist-meta">
+                                                ${taskData.completedBy || 'Staff'} • ${formatTime(taskData.completedAt)}
+                                            </p>
+                                        ` : ''}
+                                        ${task.photo ? '<span class="photo-required">📷 Photo</span>' : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 `;
-            }).join('');
+            }
+            container.innerHTML = html;
         }
         
         function renderVenueStaff(venueId) {
