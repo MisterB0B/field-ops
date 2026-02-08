@@ -6,6 +6,8 @@
     <title>Field Ops Tracker</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0a0a0f">
+    <!-- Unified Cloud Sync -->
+    <script src="https://thelightparkops.com/shared/cloud-sync.js"></script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
@@ -1479,6 +1481,94 @@
             localStorage.setItem('fieldops-checkins', JSON.stringify(checkIns));
             localStorage.setItem('fieldops-tasks', JSON.stringify(taskCompletions));
             localStorage.setItem('fieldops-issues', JSON.stringify(issues));
+            
+            // Sync to cloud for Command Center
+            syncToCloud();
+        }
+        
+        async function syncToCloud() {
+            if (!window.TLPFieldOpsSync) return;
+            
+            try {
+                // Format check-ins for cloud
+                const checkinsArray = [];
+                Object.entries(checkIns).forEach(([date, dayCheckins]) => {
+                    Object.entries(dayCheckins).forEach(([staffId, data]) => {
+                        checkinsArray.push({
+                            staffId,
+                            date,
+                            ...data,
+                            venue: staff.find(s => s.id === staffId)?.venueId || 'unknown'
+                        });
+                    });
+                });
+                
+                // Format tasks for cloud
+                const tasksArray = [];
+                Object.entries(taskCompletions).forEach(([date, dayTasks]) => {
+                    Object.entries(dayTasks).forEach(([key, data]) => {
+                        const [venueId, taskId] = key.split('-');
+                        tasksArray.push({
+                            venueId,
+                            taskId,
+                            date,
+                            ...data
+                        });
+                    });
+                });
+                
+                // Save to shared collections
+                await TLPFieldOpsSync.getSync().save('field-ops-checkins', checkinsArray);
+                await TLPFieldOpsSync.getSync().save('field-ops-tasks', tasksArray);
+                await TLPFieldOpsSync.getSync().save('field-ops-issues', issues);
+                
+                console.log('[Field Ops] ✓ Synced to cloud');
+            } catch (e) {
+                console.error('[Field Ops] Sync failed:', e);
+            }
+        }
+        
+        async function loadSharedEmployees() {
+            if (!window.TLPStaffSync) return;
+            
+            try {
+                const employees = await TLPStaffSync.getStaff();
+                if (employees && employees.length > 0) {
+                    // Merge with local staff (employees become read-only reference)
+                    const fieldOpsRoles = ['Show Tech', 'Build Lead', 'Field Ops'];
+                    const fieldStaff = employees.filter(e => 
+                        fieldOpsRoles.some(role => e.role.toLowerCase().includes(role.toLowerCase()))
+                    );
+                    console.log('[Field Ops] Loaded', fieldStaff.length, 'field staff from Employee App');
+                    
+                    // Map to local format
+                    fieldStaff.forEach(e => {
+                        if (!staff.find(s => s.name === e.name)) {
+                            staff.push({
+                                id: 'emp-' + e.id,
+                                name: e.name,
+                                phone: e.phone || '',
+                                role: e.role.toLowerCase().includes('build') ? 'build-lead' : 'show-tech',
+                                venueId: mapVenueToId(e.venue),
+                                fromEmployeeApp: true
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('[Field Ops] Could not load shared employees:', e);
+            }
+        }
+        
+        function mapVenueToId(venue) {
+            const map = {
+                'Pearland': 'pearland',
+                'Santa Fe': 'santa-fe',
+                'League City': 'league-city',
+                'Katy': 'katy',
+                'Floater': 'floater'
+            };
+            return map[venue] || venue.toLowerCase().replace(/\s+/g, '-');
         }
         
         function switchTab(tab) {
@@ -1492,10 +1582,13 @@
         }
         
         // ========== INIT ==========
-        function init() {
+        async function init() {
             // Demo mode - no PIN required, straight to app
             currentUser = { name: 'Demo', role: 'owner' };
             showApp();
+            
+            // Load shared employees from Employee App
+            await loadSharedEmployees();
             
             // Add some demo data if empty
             if (staff.length === 0) {
