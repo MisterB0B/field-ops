@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Field Ops Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --border: #2a2a3a;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --accent-purple: #a855f7;
+            --accent-teal: #06d6a0;
+            --accent-pink: #ff4fd8;
+            --status-green: #22c55e;
+            --status-yellow: #eab308;
+            --status-red: #ef4444;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1025 100%);
+        }
+        
+        .login-screen.hidden { display: none; }
+        
+        .login-logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .login-title {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .login-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+        
+        .pin-display {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .pin-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-purple);
+            transition: all 0.2s;
+        }
+        
+        .pin-dot.filled {
+            background: var(--accent-purple);
+            box-shadow: 0 0 10px var(--accent-purple);
+        }
+        
+        .pin-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            max-width: 280px;
+        }
+        
+        .pin-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 28px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .pin-btn:hover { background: var(--bg-secondary); }
+        .pin-btn:active { transform: scale(0.95); }
+        .pin-btn.clear { font-size: 14px; }
+        
+        .login-error {
+            color: var(--status-red);
+            margin-top: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .login-error.show { opacity: 1; }
+        
+        /* Main App */
+        .app-container { display: none; }
+        .app-container.active { display: block; }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .header-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .user-badge {
+            background: var(--accent-purple);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .mode-toggle {
+            display: flex;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+            color: white;
+        }
+        
+        /* Dashboard Grid */
+        .dashboard {
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+        
+        .venue-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+        
+        @media (min-width: 768px) {
+            .venue-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+        
+        .venue-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .venue-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-purple);
+        }
+        
+        .venue-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+        
+        .venue-card.status-green::before { background: var(--status-green); }
+        .venue-card.status-yellow::before { background: var(--status-yellow); }
+        .venue-card.status-red::before { background: var(--status-red); }
+        .venue-card.status-gray::before { background: var(--border); }
+        
+        .venue-name {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .venue-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .venue-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .venue-stat .check { color: var(--status-green); }
+        .venue-stat .pending { color: var(--status-yellow); }
+        .venue-stat .missing { color: var(--status-red); }
+        
+        /* Staff List */
+        .staff-section {
+            margin-bottom: 30px;
+        }
+        
+        .staff-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .add-btn {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .staff-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .staff-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .staff-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .staff-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        
+        .staff-details h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .staff-details p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .staff-status {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.checked-in {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--status-green);
+        }
+        
+        .status-badge.not-checked-in {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--status-red);
+        }
+        
+        .status-badge.pending {
+            background: rgba(234, 179, 8, 0.2);
+            color: var(--status-yellow);
+        }
+        
+        .check-in-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .gps-verified {
+            font-size: 11px;
+            color: var(--status-green);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Task Progress */
+        .task-progress {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            height: 6px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .task-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-teal));
+            transition: width 0.3s;
+        }
+        
+        /* Issues/Flags */
+        .issues-section {
+            margin-bottom: 30px;
+        }
+        
+        .issue-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--status-red);
+            margin-bottom: 10px;
+        }
+        
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .issue-venue {
+            font-size: 12px;
+            color: var(--accent-purple);
+            font-weight: 600;
+        }
+        
+        .issue-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .issue-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        .issue-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .issue-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .issue-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .issue-btn.resolve {
+            background: var(--status-green);
+            color: white;
+        }
+        
+        .issue-btn.escalate {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+        
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            display: flex;
+            padding: 10px 20px;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        
+        .nav-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .nav-btn.active { color: var(--accent-purple); }
+        .nav-btn span { font-size: 11px; font-weight: 500; }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            padding: 20px;
+        }
+        
+        .modal-overlay.active { display: flex; }
+        
+        .modal {
+            background: var(--bg-card);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 15px;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+        }
+        
+        .form-submit {
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-teal));
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        
+        /* Venue Detail View */
+        .venue-detail { display: none; }
+        .venue-detail.active { display: block; }
+        
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: none;
+            border: none;
+            color: var(--accent-purple);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 16px 20px;
+        }
+        
+        .detail-header {
+            padding: 0 20px 20px;
+        }
+        
+        .detail-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .detail-meta {
+            display: flex;
+            gap: 16px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .checklist-section {
+            padding: 20px;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+        
+        .checklist-checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .checklist-checkbox.checked {
+            background: var(--status-green);
+            border-color: var(--status-green);
+        }
+        
+        .checklist-content {
+            flex: 1;
+        }
+        
+        .checklist-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .checklist-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .photo-required {
+            font-size: 11px;
+            color: var(--accent-pink);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .empty-state-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        
+        /* Logout */
+        .logout-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 8px;
+        }
+        
+        .logout-btn:hover { color: var(--status-red); }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-logo">🎯</div>
+        <h1 class="login-title">Field Ops Tracker</h1>
+        <p class="login-subtitle">Bob & Zac Only</p>
+        
+        <div class="pin-display">
+            <div class="pin-dot" id="dot1"></div>
+            <div class="pin-dot" id="dot2"></div>
+            <div class="pin-dot" id="dot3"></div>
+            <div class="pin-dot" id="dot4"></div>
+        </div>
+        
+        <div class="pin-pad">
+            <button class="pin-btn" onclick="addPin('1')">1</button>
+            <button class="pin-btn" onclick="addPin('2')">2</button>
+            <button class="pin-btn" onclick="addPin('3')">3</button>
+            <button class="pin-btn" onclick="addPin('4')">4</button>
+            <button class="pin-btn" onclick="addPin('5')">5</button>
+            <button class="pin-btn" onclick="addPin('6')">6</button>
+            <button class="pin-btn" onclick="addPin('7')">7</button>
+            <button class="pin-btn" onclick="addPin('8')">8</button>
+            <button class="pin-btn" onclick="addPin('9')">9</button>
+            <button class="pin-btn clear" onclick="clearPin()">Clear</button>
+            <button class="pin-btn" onclick="addPin('0')">0</button>
+            <button class="pin-btn clear" onclick="backspace()">⌫</button>
+        </div>
+        
+        <p class="login-error" id="loginError">Invalid PIN</p>
+    </div>
+    
+    <!-- Main App -->
+    <div class="app-container" id="appContainer">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <h1 class="header-title">🎯 Field Ops</h1>
+                <div class="header-user">
+                    <span class="user-badge" id="userName">Bob</span>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="buildModeBtn" onclick="setMode('build')">
+                    🔨 Build Season
+                </button>
+                <button class="mode-btn" id="showModeBtn" onclick="setMode('show')">
+                    🎄 Show Season
+                </button>
+            </div>
+        </div>
+        
+        <!-- Dashboard View -->
+        <div class="dashboard" id="dashboardView">
+            <!-- Venue Grid -->
+            <h3 class="section-title">All Venues</h3>
+            <div class="venue-grid" id="venueGrid"></div>
+            
+            <!-- Active Issues -->
+            <div class="issues-section" id="issuesSection">
+                <h3 class="section-title">⚠️ Issues Requiring Attention</h3>
+                <div id="issuesList"></div>
+            </div>
+            
+            <!-- Staff Overview -->
+            <div class="staff-section">
+                <div class="staff-header">
+                    <h3 class="section-title" id="staffSectionTitle">Build Leads</h3>
+                    <button class="add-btn" onclick="openAddStaffModal()">+ Add</button>
+                </div>
+                <div class="staff-list" id="staffList"></div>
+            </div>
+        </div>
+        
+        <!-- Venue Detail View -->
+        <div class="venue-detail" id="venueDetailView">
+            <button class="back-btn" onclick="showDashboard()">← Back to All Venues</button>
+            <div class="detail-header">
+                <h2 class="detail-title" id="detailVenueName">Katy</h2>
+                <div class="detail-meta">
+                    <span id="detailStaffCount">3 Staff Assigned</span>
+                    <span id="detailTaskProgress">5/8 Tasks Done</span>
+                </div>
+            </div>
+            
+            <div class="checklist-section">
+                <h3 class="section-title">Today's Checklist</h3>
+                <div id="checklistItems"></div>
+            </div>
+            
+            <div class="staff-section" style="padding: 0 20px;">
+                <h3 class="section-title">Assigned Staff</h3>
+                <div class="staff-list" id="venueStaffList"></div>
+            </div>
+        </div>
+        
+        <!-- Bottom Nav -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" onclick="switchTab('dashboard')">
+                <span style="font-size: 20px;">📊</span>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-btn" onclick="switchTab('staff')">
+                <span style="font-size: 20px;">👥</span>
+                <span>Staff</span>
+            </button>
+            <button class="nav-btn" onclick="switchTab('tasks')">
+                <span style="font-size: 20px;">✅</span>
+                <span>Tasks</span>
+            </button>
+            <button class="nav-btn" onclick="switchTab('reports')">
+                <span style="font-size: 20px;">📈</span>
+                <span>Reports</span>
+            </button>
+        </nav>
+    </div>
+    
+    <!-- Add Staff Modal -->
+    <div class="modal-overlay" id="addStaffModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Staff Member</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" class="form-input" id="staffName" placeholder="John Smith">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone Number</label>
+                    <input type="tel" class="form-input" id="staffPhone" placeholder="(555) 123-4567">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <select class="form-select" id="staffRole">
+                        <option value="build-lead">Build Lead</option>
+                        <option value="show-tech">Show Tech</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Assigned Venue</label>
+                    <select class="form-select" id="staffVenue">
+                        <option value="katy">Katy</option>
+                        <option value="spring">Spring</option>
+                        <option value="selma">Selma</option>
+                        <option value="missions">Missions</option>
+                        <option value="arlington">Arlington</option>
+                        <option value="frisco">Frisco</option>
+                        <option value="round-rock">Round Rock</option>
+                        <option value="okc">Oklahoma City</option>
+                    </select>
+                </div>
+                <button class="form-submit" onclick="addStaff()">Add Staff Member</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== CONFIG ==========
+        const PINS = {
+            '0808': { name: 'Bob', role: 'owner' },
+            '2626': { name: 'Zac', role: 'tech-lead' }
+        };
+        
+        const VENUES = [
+            { id: 'katy', name: 'Katy', region: 'Houston' },
+            { id: 'spring', name: 'Spring', region: 'Houston' },
+            { id: 'selma', name: 'Selma', region: 'San Antonio' },
+            { id: 'missions', name: 'Missions', region: 'San Antonio' },
+            { id: 'arlington', name: 'Arlington', region: 'DFW' },
+            { id: 'frisco', name: 'Frisco', region: 'DFW' },
+            { id: 'round-rock', name: 'Round Rock', region: 'Austin' },
+            { id: 'okc', name: 'Oklahoma City', region: 'Oklahoma' }
+        ];
+        
+        const BUILD_TASKS = [
+            { id: 'arrival', title: 'Arrived On Site', photo: false },
+            { id: 'safety-check', title: 'Safety Inspection Complete', photo: true },
+            { id: 'team-briefing', title: 'Team Briefing Done', photo: false },
+            { id: 'equipment-check', title: 'Equipment Inventory Verified', photo: true },
+            { id: 'work-progress', title: 'Daily Progress Update', photo: true },
+            { id: 'issue-report', title: 'Issues Documented', photo: false },
+            { id: 'end-of-day', title: 'End of Day Report', photo: true },
+            { id: 'site-secured', title: 'Site Secured & Locked', photo: false }
+        ];
+        
+        const SHOW_TASKS = [
+            { id: 'arrival', title: 'Arrived On Site', photo: false },
+            { id: 'pre-show-walk', title: 'Pre-Show Walkthrough', photo: true },
+            { id: 'pixel-check', title: 'Pixel Systems Check', photo: false },
+            { id: 'audio-check', title: 'Audio Systems Check', photo: false },
+            { id: 'generator-fuel', title: 'Generator Fuel Level', photo: true },
+            { id: 'show-start', title: 'Show Started On Time', photo: false },
+            { id: 'mid-show-check', title: 'Mid-Show Status Check', photo: false },
+            { id: 'show-end', title: 'Show Ended / Shutdown Complete', photo: true },
+            { id: 'nightly-report', title: 'Nightly Report Submitted', photo: false }
+        ];
+        
+        // ========== STATE ==========
+        let currentPin = '';
+        let currentUser = null;
+        let currentMode = 'build'; // 'build' or 'show'
+        let currentVenue = null;
+        
+        let staff = JSON.parse(localStorage.getItem('fieldops-staff') || '[]');
+        let checkIns = JSON.parse(localStorage.getItem('fieldops-checkins') || '{}');
+        let taskCompletions = JSON.parse(localStorage.getItem('fieldops-tasks') || '{}');
+        let issues = JSON.parse(localStorage.getItem('fieldops-issues') || '[]');
+        
+        // ========== PIN LOGIN ==========
+        function addPin(digit) {
+            if (currentPin.length < 4) {
+                currentPin += digit;
+                updatePinDisplay();
+                
+                if (currentPin.length === 4) {
+                    setTimeout(checkPin, 200);
+                }
+            }
+        }
+        
+        function clearPin() {
+            currentPin = '';
+            updatePinDisplay();
+            document.getElementById('loginError').classList.remove('show');
+        }
+        
+        function backspace() {
+            currentPin = currentPin.slice(0, -1);
+            updatePinDisplay();
+        }
+        
+        function updatePinDisplay() {
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById('dot' + i);
+                dot.classList.toggle('filled', i <= currentPin.length);
+            }
+        }
+        
+        function checkPin() {
+            if (PINS[currentPin]) {
+                currentUser = PINS[currentPin];
+                localStorage.setItem('fieldops-user', JSON.stringify(currentUser));
+                showApp();
+            } else {
+                document.getElementById('loginError').classList.add('show');
+                currentPin = '';
+                updatePinDisplay();
+                
+                // Shake animation
+                const display = document.querySelector('.pin-display');
+                display.style.animation = 'shake 0.5s';
+                setTimeout(() => display.style.animation = '', 500);
+            }
+        }
+        
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('fieldops-user');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('appContainer').classList.remove('active');
+            clearPin();
+        }
+        
+        function showApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appContainer').classList.add('active');
+            document.getElementById('userName').textContent = currentUser.name;
+            renderDashboard();
+        }
+        
+        // ========== MODE TOGGLE ==========
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('buildModeBtn').classList.toggle('active', mode === 'build');
+            document.getElementById('showModeBtn').classList.toggle('active', mode === 'show');
+            document.getElementById('staffSectionTitle').textContent = mode === 'build' ? 'Build Leads' : 'Show Techs';
+            renderDashboard();
+        }
+        
+        // ========== DASHBOARD ==========
+        function renderDashboard() {
+            renderVenueGrid();
+            renderIssues();
+            renderStaffList();
+        }
+        
+        function renderVenueGrid() {
+            const grid = document.getElementById('venueGrid');
+            grid.innerHTML = VENUES.map(venue => {
+                const venueStaff = getVenueStaff(venue.id);
+                const checkedIn = venueStaff.filter(s => isCheckedInToday(s.id)).length;
+                const tasks = getVenueTasks(venue.id);
+                const completedTasks = tasks.filter(t => isTaskComplete(venue.id, t.id)).length;
+                
+                let status = 'gray';
+                if (venueStaff.length > 0) {
+                    if (checkedIn === venueStaff.length && completedTasks >= tasks.length * 0.8) {
+                        status = 'green';
+                    } else if (checkedIn > 0 || completedTasks > 0) {
+                        status = 'yellow';
+                    } else {
+                        status = 'red';
+                    }
+                }
+                
+                return `
+                    <div class="venue-card status-${status}" onclick="showVenueDetail('${venue.id}')">
+                        <h4 class="venue-name">${venue.name}</h4>
+                        <div class="venue-stats">
+                            <span class="venue-stat">
+                                <span class="${checkedIn === venueStaff.length && venueStaff.length > 0 ? 'check' : checkedIn > 0 ? 'pending' : 'missing'}">👤</span>
+                                ${checkedIn}/${venueStaff.length}
+                            </span>
+                            <span class="venue-stat">
+                                <span class="${completedTasks === tasks.length ? 'check' : completedTasks > 0 ? 'pending' : 'missing'}">✓</span>
+                                ${completedTasks}/${tasks.length}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderIssues() {
+            const section = document.getElementById('issuesSection');
+            const list = document.getElementById('issuesList');
+            
+            const activeIssues = issues.filter(i => !i.resolved);
+            
+            if (activeIssues.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            section.style.display = 'block';
+            list.innerHTML = activeIssues.map(issue => `
+                <div class="issue-card">
+                    <div class="issue-header">
+                        <span class="issue-venue">${getVenueName(issue.venueId)}</span>
+                        <span class="issue-time">${formatTime(issue.createdAt)}</span>
+                    </div>
+                    <h4 class="issue-title">${issue.title}</h4>
+                    <p class="issue-desc">${issue.description}</p>
+                    <div class="issue-actions">
+                        <button class="issue-btn resolve" onclick="resolveIssue('${issue.id}')">✓ Resolve</button>
+                        <button class="issue-btn escalate" onclick="escalateIssue('${issue.id}')">📞 Call Staff</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function renderStaffList() {
+            const list = document.getElementById('staffList');
+            const roleFilter = currentMode === 'build' ? 'build-lead' : 'show-tech';
+            const filteredStaff = staff.filter(s => s.role === roleFilter);
+            
+            if (filteredStaff.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <h4 class="empty-state-title">No ${currentMode === 'build' ? 'Build Leads' : 'Show Techs'} Yet</h4>
+                        <p>Add staff members to start tracking</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = filteredStaff.map(s => {
+                const checkedIn = isCheckedInToday(s.id);
+                const checkInData = getCheckInData(s.id);
+                
+                return `
+                    <div class="staff-card">
+                        <div class="staff-info">
+                            <div class="staff-avatar">${getInitials(s.name)}</div>
+                            <div class="staff-details">
+                                <h4>${s.name}</h4>
+                                <p>${getVenueName(s.venueId)} • ${s.phone || 'No phone'}</p>
+                            </div>
+                        </div>
+                        <div class="staff-status">
+                            <span class="status-badge ${checkedIn ? 'checked-in' : 'not-checked-in'}">
+                                ${checkedIn ? 'Checked In' : 'Not Checked In'}
+                            </span>
+                            ${checkedIn ? `
+                                <span class="check-in-time">${formatTime(checkInData.time)}</span>
+                                ${checkInData.gps ? '<span class="gps-verified">📍 GPS Verified</span>' : ''}
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // ========== VENUE DETAIL ==========
+        function showVenueDetail(venueId) {
+            currentVenue = venueId;
+            document.getElementById('dashboardView').style.display = 'none';
+            document.getElementById('venueDetailView').classList.add('active');
+            
+            const venue = VENUES.find(v => v.id === venueId);
+            const venueStaff = getVenueStaff(venueId);
+            const tasks = getVenueTasks(venueId);
+            const completedTasks = tasks.filter(t => isTaskComplete(venueId, t.id)).length;
+            
+            document.getElementById('detailVenueName').textContent = venue.name;
+            document.getElementById('detailStaffCount').textContent = `${venueStaff.length} Staff Assigned`;
+            document.getElementById('detailTaskProgress').textContent = `${completedTasks}/${tasks.length} Tasks Done`;
+            
+            renderChecklist(venueId);
+            renderVenueStaff(venueId);
+        }
+        
+        function showDashboard() {
+            currentVenue = null;
+            document.getElementById('dashboardView').style.display = 'block';
+            document.getElementById('venueDetailView').classList.remove('active');
+            renderDashboard();
+        }
+        
+        function renderChecklist(venueId) {
+            const container = document.getElementById('checklistItems');
+            const tasks = getVenueTasks(venueId);
+            
+            container.innerHTML = tasks.map(task => {
+                const isComplete = isTaskComplete(venueId, task.id);
+                const taskData = getTaskData(venueId, task.id);
+                
+                return `
+                    <div class="checklist-item">
+                        <div class="checklist-checkbox ${isComplete ? 'checked' : ''}" 
+                             onclick="toggleTask('${venueId}', '${task.id}')">
+                            ${isComplete ? '✓' : ''}
+                        </div>
+                        <div class="checklist-content">
+                            <h4 class="checklist-title">${task.title}</h4>
+                            ${isComplete ? `
+                                <p class="checklist-meta">
+                                    Completed by ${taskData.completedBy || 'Staff'} at ${formatTime(taskData.completedAt)}
+                                </p>
+                            ` : ''}
+                            ${task.photo ? '<span class="photo-required">📷 Photo Required</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function renderVenueStaff(venueId) {
+            const list = document.getElementById('venueStaffList');
+            const venueStaff = getVenueStaff(venueId);
+            
+            if (venueStaff.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <p>No staff assigned to this venue</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = venueStaff.map(s => {
+                const checkedIn = isCheckedInToday(s.id);
+                const checkInData = getCheckInData(s.id);
+                
+                return `
+                    <div class="staff-card">
+                        <div class="staff-info">
+                            <div class="staff-avatar">${getInitials(s.name)}</div>
+                            <div class="staff-details">
+                                <h4>${s.name}</h4>
+                                <p>${s.role === 'build-lead' ? 'Build Lead' : 'Show Tech'}</p>
+                            </div>
+                        </div>
+                        <div class="staff-status">
+                            <span class="status-badge ${checkedIn ? 'checked-in' : 'not-checked-in'}">
+                                ${checkedIn ? 'Checked In' : 'Not Checked In'}
+                            </span>
+                            ${checkedIn && checkInData.gps ? '<span class="gps-verified">📍 GPS Verified</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // ========== MODALS ==========
+        function openAddStaffModal() {
+            document.getElementById('addStaffModal').classList.add('active');
+            document.getElementById('staffRole').value = currentMode === 'build' ? 'build-lead' : 'show-tech';
+        }
+        
+        function closeModal() {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        }
+        
+        function addStaff() {
+            const name = document.getElementById('staffName').value.trim();
+            const phone = document.getElementById('staffPhone').value.trim();
+            const role = document.getElementById('staffRole').value;
+            const venueId = document.getElementById('staffVenue').value;
+            
+            if (!name) {
+                alert('Please enter a name');
+                return;
+            }
+            
+            const newStaff = {
+                id: 'staff-' + Date.now(),
+                name,
+                phone,
+                role,
+                venueId,
+                createdAt: new Date().toISOString()
+            };
+            
+            staff.push(newStaff);
+            saveData();
+            closeModal();
+            renderDashboard();
+            
+            // Clear form
+            document.getElementById('staffName').value = '';
+            document.getElementById('staffPhone').value = '';
+        }
+        
+        // ========== ACTIONS ==========
+        function toggleTask(venueId, taskId) {
+            const key = `${venueId}-${taskId}`;
+            const today = getTodayKey();
+            
+            if (!taskCompletions[today]) {
+                taskCompletions[today] = {};
+            }
+            
+            if (taskCompletions[today][key]) {
+                delete taskCompletions[today][key];
+            } else {
+                taskCompletions[today][key] = {
+                    completedAt: new Date().toISOString(),
+                    completedBy: currentUser.name
+                };
+            }
+            
+            saveData();
+            if (currentVenue) {
+                renderChecklist(currentVenue);
+            }
+            renderDashboard();
+        }
+        
+        function resolveIssue(issueId) {
+            const issue = issues.find(i => i.id === issueId);
+            if (issue) {
+                issue.resolved = true;
+                issue.resolvedAt = new Date().toISOString();
+                issue.resolvedBy = currentUser.name;
+                saveData();
+                renderIssues();
+            }
+        }
+        
+        function escalateIssue(issueId) {
+            const issue = issues.find(i => i.id === issueId);
+            if (issue) {
+                const staffMember = staff.find(s => s.venueId === issue.venueId);
+                if (staffMember && staffMember.phone) {
+                    window.location.href = `tel:${staffMember.phone}`;
+                } else {
+                    alert('No phone number available for staff at this venue');
+                }
+            }
+        }
+        
+        // ========== HELPERS ==========
+        function getVenueStaff(venueId) {
+            const roleFilter = currentMode === 'build' ? 'build-lead' : 'show-tech';
+            return staff.filter(s => s.venueId === venueId && s.role === roleFilter);
+        }
+        
+        function getVenueTasks(venueId) {
+            return currentMode === 'build' ? BUILD_TASKS : SHOW_TASKS;
+        }
+        
+        function getVenueName(venueId) {
+            const venue = VENUES.find(v => v.id === venueId);
+            return venue ? venue.name : venueId;
+        }
+        
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }
+        
+        function getTodayKey() {
+            return new Date().toISOString().split('T')[0];
+        }
+        
+        function isCheckedInToday(staffId) {
+            const today = getTodayKey();
+            return checkIns[today] && checkIns[today][staffId];
+        }
+        
+        function getCheckInData(staffId) {
+            const today = getTodayKey();
+            return (checkIns[today] && checkIns[today][staffId]) || {};
+        }
+        
+        function isTaskComplete(venueId, taskId) {
+            const today = getTodayKey();
+            const key = `${venueId}-${taskId}`;
+            return taskCompletions[today] && taskCompletions[today][key];
+        }
+        
+        function getTaskData(venueId, taskId) {
+            const today = getTodayKey();
+            const key = `${venueId}-${taskId}`;
+            return (taskCompletions[today] && taskCompletions[today][key]) || {};
+        }
+        
+        function formatTime(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+        
+        function saveData() {
+            localStorage.setItem('fieldops-staff', JSON.stringify(staff));
+            localStorage.setItem('fieldops-checkins', JSON.stringify(checkIns));
+            localStorage.setItem('fieldops-tasks', JSON.stringify(taskCompletions));
+            localStorage.setItem('fieldops-issues', JSON.stringify(issues));
+        }
+        
+        function switchTab(tab) {
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', ['dashboard', 'staff', 'tasks', 'reports'][i] === tab);
+            });
+            
+            // For now, all tabs show dashboard - can expand later
+            showDashboard();
+        }
+        
+        // ========== INIT ==========
+        function init() {
+            // Check for saved session
+            const savedUser = localStorage.getItem('fieldops-user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showApp();
+            }
+            
+            // Add some demo data if empty
+            if (staff.length === 0) {
+                staff = [
+                    { id: 'staff-1', name: 'Mike Rodriguez', phone: '(832) 555-0101', role: 'build-lead', venueId: 'katy', createdAt: new Date().toISOString() },
+                    { id: 'staff-2', name: 'Sarah Chen', phone: '(210) 555-0102', role: 'build-lead', venueId: 'selma', createdAt: new Date().toISOString() },
+                    { id: 'staff-3', name: 'James Wilson', phone: '(817) 555-0103', role: 'build-lead', venueId: 'arlington', createdAt: new Date().toISOString() },
+                    { id: 'staff-4', name: 'Alex Turner', phone: '(832) 555-0201', role: 'show-tech', venueId: 'katy', createdAt: new Date().toISOString() },
+                    { id: 'staff-5', name: 'Maria Santos', phone: '(210) 555-0202', role: 'show-tech', venueId: 'selma', createdAt: new Date().toISOString() }
+                ];
+                
+                // Demo check-ins
+                const today = getTodayKey();
+                checkIns[today] = {
+                    'staff-1': { time: new Date().toISOString(), gps: true, lat: 29.7604, lng: -95.3698 }
+                };
+                
+                // Demo task completions
+                taskCompletions[today] = {
+                    'katy-arrival': { completedAt: new Date().toISOString(), completedBy: 'Mike Rodriguez' },
+                    'katy-safety-check': { completedAt: new Date().toISOString(), completedBy: 'Mike Rodriguez' }
+                };
+                
+                // Demo issues
+                issues = [
+                    {
+                        id: 'issue-1',
+                        venueId: 'arlington',
+                        title: 'Generator not starting',
+                        description: 'Main generator failed pre-show check. Backup in use.',
+                        createdAt: new Date(Date.now() - 3600000).toISOString(),
+                        resolved: false
+                    }
+                ];
+                
+                saveData();
+            }
+        }
+        
+        // Shake animation CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                20%, 60% { transform: translateX(-10px); }
+                40%, 80% { transform: translateX(10px); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        init();
+    </script>
+</body>
+</html>
