@@ -6,8 +6,10 @@
     <title>Field Ops Tracker</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0a0a0f">
-    <!-- Unified Cloud Sync -->
+    <!-- Unified Cloud Sync & Permissions -->
     <script src="https://thelightparkops.com/shared/cloud-sync.js"></script>
+    <script src="https://thelightparkops.com/shared/auth.js"></script>
+    <script src="https://thelightparkops.com/shared/permissions.js"></script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
@@ -911,6 +913,23 @@
     </div>
 
     <script>
+        // ========== PERMISSION CHECK ==========
+        // Check if user has access to Field Ops (runs after login)
+        function checkFieldOpsPermission() {
+            if (typeof TLPPermissions !== 'undefined') {
+                const user = TLPPermissions.getCurrentUser();
+                if (user && !TLPPermissions.hasAppAccess('field-ops')) {
+                    TLPPermissions.showAccessDenied('field-ops', user);
+                    return false;
+                }
+                // Log access
+                if (user) {
+                    TLPPermissions.logAction('view', 'Accessed Field Ops');
+                }
+            }
+            return true;
+        }
+        
         // ========== CONFIG ==========
         const PINS = {
             '0808': { name: 'Bob', role: 'owner' },
@@ -1095,6 +1114,23 @@
         }
         
         function showApp() {
+            // Store session for TLPPermissions compatibility
+            if (currentUser) {
+                const session = {
+                    id: 'user_' + currentUser.name.toLowerCase().replace(/\s+/g, '_'),
+                    name: currentUser.name,
+                    role: currentUser.role === 'tech-lead' ? 'tech_lead' : currentUser.role,
+                    apps: ['field-ops', 'employee-app', 'training-hub'],
+                    expires: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+                };
+                localStorage.setItem('tlpSession', JSON.stringify(session));
+                
+                // Log access
+                if (typeof TLPPermissions !== 'undefined') {
+                    TLPPermissions.logAction('login', `Logged into Field Ops as ${currentUser.name}`);
+                }
+            }
+            
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('appContainer').classList.add('active');
             document.getElementById('userName').textContent = currentUser.name;
