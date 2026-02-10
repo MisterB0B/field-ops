@@ -755,9 +755,12 @@
     </style>
 </head>
 <body>
+  <a href="https://thelightparkops.com" style="position: absolute; top: 20px; left: 20px; color: #a855f7; text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; z-index: 1000;" onmouseover="this.style.color='#06d6a0'" onmouseout="this.style.color='#a855f7'">
+    ← Dashboard
+  </a>
     <!-- Login Screen (hidden in demo mode) -->
     <div class="login-screen hidden" id="loginScreen">
-        <div class="login-logo">🎯</div>
+        <div class="login-logo">📋</div>
         <h1 class="login-title">Field Ops Tracker</h1>
         <p class="login-subtitle">Bob & Zac Only</p>
         
@@ -791,9 +794,10 @@
         <!-- Header -->
         <div class="header">
             <div class="header-top">
-                <h1 class="header-title">🎯 Field Ops</h1>
+                <h1 class="header-title">📋 Field Ops</h1>
                 <div class="header-user">
                     <span class="user-badge">Demo Mode</span>
+                    <span id="syncStatus" style="font-size: 10px; color: #8888a0; margin-left: 8px;">☁️</span>
                 </div>
             </div>
             <div class="mode-toggle">
@@ -1512,17 +1516,48 @@
             return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         }
         
-        function saveData() {
+        async function saveData() {
             localStorage.setItem('fieldops-staff', JSON.stringify(staff));
             localStorage.setItem('fieldops-checkins', JSON.stringify(checkIns));
             localStorage.setItem('fieldops-tasks', JSON.stringify(taskCompletions));
             localStorage.setItem('fieldops-issues', JSON.stringify(issues));
             
             // Sync to cloud for Command Center
-            syncToCloud();
+            await syncToCloud();
         }
         
         async function syncToCloud() {
+            // Use SupabaseSync if available
+            if (typeof SupabaseSync !== 'undefined') {
+                const sync = new SupabaseSync('field_ops');
+                const statusEl = document.getElementById('syncStatus');
+                
+                try {
+                    const result = await sync.save('field_data', {
+                        staff,
+                        checkIns,
+                        taskCompletions,
+                        issues,
+                        updatedAt: new Date().toISOString()
+                    });
+                    
+                    if (statusEl) {
+                        if (result.synced) {
+                            statusEl.textContent = '☁️ ' + new Date().toLocaleTimeString();
+                            statusEl.style.color = '#06d6a0';
+                            console.log('✅ Field ops data synced');
+                        } else {
+                            statusEl.textContent = '📱 Local';
+                            statusEl.style.color = '#8888a0';
+                        }
+                    }
+                } catch (err) {
+                    console.error('Sync error:', err);
+                    if (statusEl) statusEl.textContent = '⚠️';
+                }
+                return;
+            }
+            
             if (!window.TLPFieldOpsSync) return;
             
             try {
@@ -1619,6 +1654,30 @@
         
         // ========== INIT ==========
         async function init() {
+            // Try loading from cloud first
+            if (typeof SupabaseSync !== 'undefined') {
+                const sync = new SupabaseSync('field_ops');
+                const statusEl = document.getElementById('syncStatus');
+                
+                try {
+                    const cloudData = await sync.load('field_data');
+                    if (cloudData && cloudData.staff) {
+                        staff = cloudData.staff;
+                        checkIns = cloudData.checkIns || {};
+                        taskCompletions = cloudData.taskCompletions || {};
+                        issues = cloudData.issues || [];
+                        
+                        if (statusEl) {
+                            statusEl.textContent = '☁️ Loaded';
+                            statusEl.style.color = '#06d6a0';
+                        }
+                        console.log('✅ Loaded field ops data from cloud');
+                    }
+                } catch (err) {
+                    console.error('Cloud load error:', err);
+                }
+            }
+            
             // Demo mode - no PIN required, straight to app
             currentUser = { name: 'Demo', role: 'owner' };
             showApp();
