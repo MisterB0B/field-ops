@@ -755,9 +755,6 @@
     </style>
 </head>
 <body>
-  <a href="https://thelightparkops.com" style="position: absolute; top: 20px; left: 20px; color: #a855f7; text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; z-index: 1000;" onmouseover="this.style.color='#06d6a0'" onmouseout="this.style.color='#a855f7'">
-    ← Dashboard
-  </a>
     <!-- Login Screen (hidden in demo mode) -->
     <div class="login-screen hidden" id="loginScreen">
         <div class="login-logo">📋</div>
@@ -794,7 +791,12 @@
         <!-- Header -->
         <div class="header">
             <div class="header-top">
-                <h1 class="header-title">📋 Field Ops</h1>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <a href="https://thelightparkops.com" style="color: #a855f7; text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.color='#06d6a0'" onmouseout="this.style.color='#a855f7'">
+                        ← Dashboard
+                    </a>
+                    <h1 class="header-title">📋 Field Ops</h1>
+                </div>
                 <div class="header-user">
                     <span class="user-badge">Demo Mode</span>
                     <span id="syncStatus" style="font-size: 10px; color: #8888a0; margin-left: 8px;">☁️</span>
