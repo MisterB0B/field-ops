@@ -8,7 +8,9 @@
     <meta name="theme-color" content="#0a0a0f">
     <!-- Unified Cloud Sync & Permissions -->
     <script src="https://thelightparkops.com/shared/cloud-sync.js"></script>
-    <script src="https://thelightparkops.com/shared/auth.js"></script>
+    <script src="/shared/supabase-auth.js"></script>
+    <script src="/shared/activity-logger.js"></script>
+    <script src="/shared/auth-gate.js" data-app="Field Ops" data-icon="🔧"></script>
     <script src="https://thelightparkops.com/shared/permissions.js"></script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -850,6 +852,17 @@
                 <div id="checklistItems"></div>
             </div>
             
+            <!-- CAD Notes Section -->
+            <div id="cadNotesSection" style="display: none; padding: 0 20px; margin-bottom: 24px;">
+                <h3 class="section-title" style="color: var(--accent-teal);">📐 CAD Draftsman Notes</h3>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                    <div id="cadNotesContent" style="color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap;"></div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-secondary);">
+                        <span id="cadNotesTimestamp"></span>
+                    </div>
+                </div>
+            </div>
+            
             <div class="staff-section" style="padding: 0 20px;">
                 <h3 class="section-title">Assigned Staff</h3>
                 <div class="staff-list" id="venueStaffList"></div>
@@ -1284,6 +1297,50 @@
             
             renderChecklist(venueId);
             renderVenueStaff(venueId);
+            loadCADNotes(venueId);
+        }
+        
+        function loadCADNotes(venueId) {
+            try {
+                const cadNotesData = localStorage.getItem('cad_field_notes');
+                if (!cadNotesData) {
+                    document.getElementById('cadNotesSection').style.display = 'none';
+                    return;
+                }
+                
+                const notes = JSON.parse(cadNotesData);
+                const venueNotes = notes[venueId];
+                
+                if (!venueNotes || !venueNotes.notes) {
+                    document.getElementById('cadNotesSection').style.display = 'none';
+                    return;
+                }
+                
+                // Show notes section
+                document.getElementById('cadNotesSection').style.display = 'block';
+                document.getElementById('cadNotesContent').textContent = venueNotes.notes;
+                
+                // Format timestamp
+                const timestamp = new Date(venueNotes.updatedAt);
+                const timeAgo = formatTimeAgo(timestamp);
+                document.getElementById('cadNotesTimestamp').textContent = `Updated ${timeAgo} by ${venueNotes.updatedBy}`;
+            } catch (err) {
+                console.error('Error loading CAD notes:', err);
+                document.getElementById('cadNotesSection').style.display = 'none';
+            }
+        }
+        
+        function formatTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            if (days === 1) return 'yesterday';
+            if (days < 7) return `${days}d ago`;
+            return date.toLocaleDateString();
         }
         
         function showDashboard() {
@@ -1680,8 +1737,12 @@
                 }
             }
             
-            // Demo mode - no PIN required, straight to app
-            currentUser = { name: 'Demo', role: 'owner' };
+            // Use Supabase auth profile if available (auth-gate handles login)
+            if (window.currentUserProfile) {
+                currentUser = { name: window.currentUserProfile.display_name || 'User', role: window.currentUserProfile.role || 'owner' };
+            } else {
+                currentUser = { name: 'User', role: 'owner' };
+            }
             showApp();
             
             // Load shared employees from Employee App
