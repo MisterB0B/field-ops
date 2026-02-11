@@ -1066,16 +1066,145 @@
             { id: 'car-count', title: 'Car Count Logged', photo: false, category: 'Closeout' }
         ];
         
+        // ═══════════════════════════════════════════════════════════════
+        // SUPABASE DATA LAYER — Field Ops
+        // Tables: field_ops_staff, field_ops_checkins, field_ops_tasks, field_ops_issues
+        // ═══════════════════════════════════════════════════════════════
+        const SUPABASE_URL = 'https://gwjtfcrgpxclixonogpe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3anRmY3JncHhjbGl4b25vZ3BlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMzQzOTUsImV4cCI6MjA4NTkxMDM5NX0.qM1-_VA1Dsx_nsWkeoAJvNWNgSuuwApPBGoJU32X3-I';
+        const SB_HEADERS = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
+        const SB_HEADERS_RO = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
+
+        async function sbFetch(path, opts = {}) {
+          const hdrs = opts.body ? { ...SB_HEADERS, ...(opts.extraHeaders || {}) } : SB_HEADERS_RO;
+          delete opts.extraHeaders;
+          const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: hdrs, ...opts });
+          if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+          const text = await res.text();
+          return text ? JSON.parse(text) : null;
+        }
+
+        // Toast system
+        function foShowToast(msg, type='info', dur=4000) {
+          let c = document.getElementById('fo-toasts');
+          if (!c) { c = document.createElement('div'); c.id='fo-toasts'; c.style.cssText='position:fixed;top:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:10px;max-width:340px;'; document.body.appendChild(c); }
+          const colors = { success:'rgba(6,214,160,0.95)', error:'rgba(239,68,68,0.95)', warning:'rgba(249,115,22,0.95)', info:'rgba(168,85,247,0.95)' };
+          const t = document.createElement('div');
+          t.style.cssText = `background:${colors[type]};color:white;padding:14px 18px;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-size:14px;`;
+          t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), dur);
+        }
+
+        const FieldOpsDB = {
+          online: navigator.onLine,
+          
+          // ── Staff ──
+          async loadStaff() {
+            try {
+              const rows = await sbFetch('field_ops_staff?select=*&order=created_at.asc');
+              localStorage.setItem('fo_staff', JSON.stringify(rows));
+              return rows;
+            } catch (e) {
+              console.error('[FO] loadStaff:', e);
+              return JSON.parse(localStorage.getItem('fo_staff') || '[]');
+            }
+          },
+          async addStaff(s) {
+            const row = { name: s.name, phone: s.phone, role: s.role, venue_id: s.venueId };
+            try {
+              await sbFetch('field_ops_staff', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              foShowToast('☁️ Staff added', 'success', 2000);
+              return true;
+            } catch (e) {
+              console.error('[FO] addStaff:', e);
+              foShowToast('⚠️ Save failed, stored locally', 'warning');
+              return false;
+            }
+          },
+
+          // ── Check-ins ──
+          async loadCheckins(date) {
+            date = date || new Date().toISOString().split('T')[0];
+            try {
+              const rows = await sbFetch(`field_ops_checkins?check_in_time=gte.${date}T00:00:00&check_in_time=lt.${date}T23:59:59&select=*`);
+              localStorage.setItem('fo_checkins_' + date, JSON.stringify(rows));
+              return rows;
+            } catch (e) {
+              return JSON.parse(localStorage.getItem('fo_checkins_' + date) || '[]');
+            }
+          },
+          async checkIn(employee_id, employee_name, venue_id, role, gpsData) {
+            const row = { venue_id, employee_id, employee_name, role, check_in_time: new Date().toISOString(), notes: gpsData ? `GPS: ${gpsData.lat},${gpsData.lng}` : '' };
+            try {
+              await sbFetch('field_ops_checkins', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              return true;
+            } catch (e) { console.error('[FO] checkIn:', e); return false; }
+          },
+
+          // ── Tasks ──
+          async loadTasks(date) {
+            date = date || new Date().toISOString().split('T')[0];
+            try {
+              const rows = await sbFetch(`field_ops_tasks?completed_at=gte.${date}T00:00:00&completed_at=lt.${date}T23:59:59&select=*`);
+              localStorage.setItem('fo_tasks_' + date, JSON.stringify(rows));
+              return rows;
+            } catch (e) {
+              return JSON.parse(localStorage.getItem('fo_tasks_' + date) || '[]');
+            }
+          },
+          async completeTask(venue_id, task_id, mode, completed_by) {
+            const row = { venue_id, task_id, mode, completed_by, completed_at: new Date().toISOString() };
+            try {
+              await sbFetch('field_ops_tasks', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              return true;
+            } catch (e) { console.error('[FO] completeTask:', e); return false; }
+          },
+          async uncompleteTask(venue_id, task_id, mode) {
+            try {
+              await sbFetch(`field_ops_tasks?venue_id=eq.${venue_id}&task_id=eq.${task_id}&mode=eq.${mode}`, { method: 'DELETE' });
+              return true;
+            } catch (e) { console.error('[FO] uncompleteTask:', e); return false; }
+          },
+
+          // ── Issues ──
+          async loadIssues() {
+            try {
+              const rows = await sbFetch('field_ops_issues?select=*&order=reported_at.desc');
+              localStorage.setItem('fo_issues', JSON.stringify(rows));
+              return rows;
+            } catch (e) {
+              return JSON.parse(localStorage.getItem('fo_issues') || '[]');
+            }
+          },
+          async addIssue(issue) {
+            const row = { venue_id: issue.venueId, issue_type: issue.type || 'general', description: issue.description, priority: issue.priority || 'medium', reported_by: issue.reportedBy, status: 'open', reported_at: new Date().toISOString() };
+            try {
+              await sbFetch('field_ops_issues', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              foShowToast('☁️ Issue reported', 'success', 2000);
+              return true;
+            } catch (e) { foShowToast('⚠️ Failed to save issue', 'error'); return false; }
+          },
+          async resolveIssue(id, resolvedBy, notes) {
+            try {
+              await sbFetch(`field_ops_issues?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved', resolved_at: new Date().toISOString(), resolution_notes: notes || '', updated_at: new Date().toISOString() }) });
+              return true;
+            } catch (e) { return false; }
+          }
+        };
+
+        window.addEventListener('online', () => { FieldOpsDB.online = true; });
+        window.addEventListener('offline', () => { FieldOpsDB.online = false; });
+
         // ========== STATE ==========
         let currentPin = '';
         let currentUser = null;
-        let currentMode = 'build'; // 'build' or 'show'
+        let currentMode = 'build';
         let currentVenue = null;
         
-        let staff = JSON.parse(localStorage.getItem('fieldops-staff') || '[]');
-        let checkIns = JSON.parse(localStorage.getItem('fieldops-checkins') || '{}');
-        let taskCompletions = JSON.parse(localStorage.getItem('fieldops-tasks') || '{}');
-        let issues = JSON.parse(localStorage.getItem('fieldops-issues') || '[]');
+        // These now load from Supabase (initialized empty, populated in init())
+        let staff = [];
+        let checkIns = {};
+        let taskCompletions = {};
+        let issues = [];
         
         // ========== PIN LOGIN ==========
         function addPin(digit) {
@@ -1446,7 +1575,7 @@
             document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
         }
         
-        function addStaff() {
+        async function addStaff() {
             const name = document.getElementById('staffName').value.trim();
             const phone = document.getElementById('staffPhone').value.trim();
             const role = document.getElementById('staffRole').value;
@@ -1457,16 +1586,11 @@
                 return;
             }
             
-            const newStaff = {
-                id: 'staff-' + Date.now(),
-                name,
-                phone,
-                role,
-                venueId,
-                createdAt: new Date().toISOString()
-            };
+            // Save to Supabase first
+            await FieldOpsDB.addStaff({ name, phone, role, venueId });
             
-            staff.push(newStaff);
+            // Reload staff from cloud
+            staff = await FieldOpsDB.loadStaff();
             saveData();
             closeModal();
             renderDashboard();
@@ -1477,7 +1601,7 @@
         }
         
         // ========== ACTIONS ==========
-        function toggleTask(venueId, taskId) {
+        async function toggleTask(venueId, taskId) {
             const key = `${venueId}-${taskId}`;
             const today = getTodayKey();
             
@@ -1487,11 +1611,15 @@
             
             if (taskCompletions[today][key]) {
                 delete taskCompletions[today][key];
+                // Remove from Supabase
+                await FieldOpsDB.uncompleteTask(venueId, taskId, currentMode);
             } else {
                 taskCompletions[today][key] = {
                     completedAt: new Date().toISOString(),
-                    completedBy: currentUser.name
+                    completedBy: currentUser ? currentUser.name : 'User'
                 };
+                // Save to Supabase
+                await FieldOpsDB.completeTask(venueId, taskId, currentMode, currentUser ? currentUser.name : 'User');
             }
             
             saveData();
@@ -1501,14 +1629,17 @@
             renderDashboard();
         }
         
-        function resolveIssue(issueId) {
+        async function resolveIssue(issueId) {
             const issue = issues.find(i => i.id === issueId);
             if (issue) {
                 issue.resolved = true;
                 issue.resolvedAt = new Date().toISOString();
-                issue.resolvedBy = currentUser.name;
+                issue.resolvedBy = currentUser ? currentUser.name : 'User';
+                // Sync to Supabase
+                await FieldOpsDB.resolveIssue(issueId, issue.resolvedBy);
                 saveData();
                 renderIssues();
+                foShowToast('✅ Issue resolved', 'success', 2000);
             }
         }
         
@@ -1575,131 +1706,29 @@
             return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         }
         
+        // saveData now syncs to Supabase proper tables (handled by individual operations)
+        // This function just updates localStorage cache for offline access
         async function saveData() {
             localStorage.setItem('fieldops-staff', JSON.stringify(staff));
             localStorage.setItem('fieldops-checkins', JSON.stringify(checkIns));
             localStorage.setItem('fieldops-tasks', JSON.stringify(taskCompletions));
             localStorage.setItem('fieldops-issues', JSON.stringify(issues));
-            
-            // Sync to cloud for Command Center
-            await syncToCloud();
+            updateSyncStatusUI(true);
         }
-        
-        async function syncToCloud() {
-            // Use SupabaseSync if available
-            if (typeof SupabaseSync !== 'undefined') {
-                const sync = new SupabaseSync('field_ops');
-                const statusEl = document.getElementById('syncStatus');
-                
-                try {
-                    const result = await sync.save('field_data', {
-                        staff,
-                        checkIns,
-                        taskCompletions,
-                        issues,
-                        updatedAt: new Date().toISOString()
-                    });
-                    
-                    if (statusEl) {
-                        if (result.synced) {
-                            statusEl.textContent = '☁️ ' + new Date().toLocaleTimeString();
-                            statusEl.style.color = '#06d6a0';
-                            console.log('✅ Field ops data synced');
-                        } else {
-                            statusEl.textContent = '📱 Local';
-                            statusEl.style.color = '#8888a0';
-                        }
-                    }
-                } catch (err) {
-                    console.error('Sync error:', err);
-                    if (statusEl) statusEl.textContent = '⚠️';
-                }
-                return;
-            }
-            
-            if (!window.TLPFieldOpsSync) return;
-            
-            try {
-                // Format check-ins for cloud
-                const checkinsArray = [];
-                Object.entries(checkIns).forEach(([date, dayCheckins]) => {
-                    Object.entries(dayCheckins).forEach(([staffId, data]) => {
-                        checkinsArray.push({
-                            staffId,
-                            date,
-                            ...data,
-                            venue: staff.find(s => s.id === staffId)?.venueId || 'unknown'
-                        });
-                    });
-                });
-                
-                // Format tasks for cloud
-                const tasksArray = [];
-                Object.entries(taskCompletions).forEach(([date, dayTasks]) => {
-                    Object.entries(dayTasks).forEach(([key, data]) => {
-                        const [venueId, taskId] = key.split('-');
-                        tasksArray.push({
-                            venueId,
-                            taskId,
-                            date,
-                            ...data
-                        });
-                    });
-                });
-                
-                // Save to shared collections
-                await TLPFieldOpsSync.getSync().save('field-ops-checkins', checkinsArray);
-                await TLPFieldOpsSync.getSync().save('field-ops-tasks', tasksArray);
-                await TLPFieldOpsSync.getSync().save('field-ops-issues', issues);
-                
-                console.log('[Field Ops] ✓ Synced to cloud');
-            } catch (e) {
-                console.error('[Field Ops] Sync failed:', e);
+
+        function updateSyncStatusUI(synced) {
+            const statusEl = document.getElementById('syncStatus');
+            if (!statusEl) return;
+            if (synced) {
+                statusEl.textContent = '☁️ ' + new Date().toLocaleTimeString();
+                statusEl.style.color = '#06d6a0';
+            } else {
+                statusEl.textContent = '📱 Local';
+                statusEl.style.color = '#8888a0';
             }
         }
         
-        async function loadSharedEmployees() {
-            if (!window.TLPStaffSync) return;
-            
-            try {
-                const employees = await TLPStaffSync.getStaff();
-                if (employees && employees.length > 0) {
-                    // Merge with local staff (employees become read-only reference)
-                    const fieldOpsRoles = ['Show Tech', 'Build Lead', 'Field Ops'];
-                    const fieldStaff = employees.filter(e => 
-                        fieldOpsRoles.some(role => e.role.toLowerCase().includes(role.toLowerCase()))
-                    );
-                    console.log('[Field Ops] Loaded', fieldStaff.length, 'field staff from Employee App');
-                    
-                    // Map to local format
-                    fieldStaff.forEach(e => {
-                        if (!staff.find(s => s.name === e.name)) {
-                            staff.push({
-                                id: 'emp-' + e.id,
-                                name: e.name,
-                                phone: e.phone || '',
-                                role: e.role.toLowerCase().includes('build') ? 'build-lead' : 'show-tech',
-                                venueId: mapVenueToId(e.venue),
-                                fromEmployeeApp: true
-                            });
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error('[Field Ops] Could not load shared employees:', e);
-            }
-        }
-        
-        function mapVenueToId(venue) {
-            const map = {
-                'Pearland': 'pearland',
-                'Santa Fe': 'santa-fe',
-                'League City': 'league-city',
-                'Katy': 'katy',
-                'Floater': 'floater'
-            };
-            return map[venue] || venue.toLowerCase().replace(/\s+/g, '-');
-        }
+        // Shared employees now loaded directly from field_ops_staff Supabase table
         
         function switchTab(tab) {
             // Update nav buttons
@@ -1713,77 +1742,106 @@
         
         // ========== INIT ==========
         async function init() {
-            // Try loading from cloud first
-            if (typeof SupabaseSync !== 'undefined') {
-                const sync = new SupabaseSync('field_ops');
-                const statusEl = document.getElementById('syncStatus');
-                
-                try {
-                    const cloudData = await sync.load('field_data');
-                    if (cloudData && cloudData.staff) {
-                        staff = cloudData.staff;
-                        checkIns = cloudData.checkIns || {};
-                        taskCompletions = cloudData.taskCompletions || {};
-                        issues = cloudData.issues || [];
-                        
-                        if (statusEl) {
-                            statusEl.textContent = '☁️ Loaded';
-                            statusEl.style.color = '#06d6a0';
-                        }
-                        console.log('✅ Loaded field ops data from cloud');
-                    }
-                } catch (err) {
-                    console.error('Cloud load error:', err);
-                }
-            }
-            
-            // Use Supabase auth profile if available (auth-gate handles login)
+            // Use Supabase auth profile if available
             if (window.currentUserProfile) {
                 currentUser = { name: window.currentUserProfile.display_name || 'User', role: window.currentUserProfile.role || 'owner' };
             } else {
                 currentUser = { name: 'User', role: 'owner' };
             }
             showApp();
-            
-            // Load shared employees from Employee App
-            await loadSharedEmployees();
-            
-            // Add some demo data if empty
-            if (staff.length === 0) {
-                staff = [
-                    { id: 'staff-1', name: 'Mike Rodriguez', phone: '(832) 555-0101', role: 'build-lead', venueId: 'katy', createdAt: new Date().toISOString() },
-                    { id: 'staff-2', name: 'Sarah Chen', phone: '(210) 555-0102', role: 'build-lead', venueId: 'selma', createdAt: new Date().toISOString() },
-                    { id: 'staff-3', name: 'James Wilson', phone: '(817) 555-0103', role: 'build-lead', venueId: 'arlington', createdAt: new Date().toISOString() },
-                    { id: 'staff-4', name: 'Alex Turner', phone: '(832) 555-0201', role: 'show-tech', venueId: 'katy', createdAt: new Date().toISOString() },
-                    { id: 'staff-5', name: 'Maria Santos', phone: '(210) 555-0202', role: 'show-tech', venueId: 'selma', createdAt: new Date().toISOString() }
-                ];
+
+            // Load all data from Supabase proper tables
+            try {
+                staff = await FieldOpsDB.loadStaff();
                 
-                // Demo check-ins
+                // Load today's checkins and convert to legacy format
                 const today = getTodayKey();
-                checkIns[today] = {
-                    'staff-1': { time: new Date().toISOString(), gps: true, lat: 29.7604, lng: -95.3698 }
-                };
+                const checkinRows = await FieldOpsDB.loadCheckins(today);
+                checkIns[today] = {};
+                checkinRows.forEach(c => {
+                    checkIns[today][c.employee_id] = {
+                        time: c.check_in_time,
+                        gps: c.notes?.startsWith('GPS:'),
+                        venue: c.venue_id
+                    };
+                });
                 
-                // Demo task completions
-                taskCompletions[today] = {
-                    'katy-arrival': { completedAt: new Date().toISOString(), completedBy: 'Mike Rodriguez' },
-                    'katy-safety-check': { completedAt: new Date().toISOString(), completedBy: 'Mike Rodriguez' }
-                };
+                // Load today's tasks and convert to legacy format
+                const taskRows = await FieldOpsDB.loadTasks(today);
+                taskCompletions[today] = {};
+                taskRows.forEach(t => {
+                    const key = `${t.venue_id}-${t.task_id}`;
+                    taskCompletions[today][key] = {
+                        completedAt: t.completed_at,
+                        completedBy: t.completed_by
+                    };
+                });
                 
-                // Demo issues
-                issues = [
-                    {
-                        id: 'issue-1',
-                        venueId: 'arlington',
-                        title: 'Generator not starting',
-                        description: 'Main generator failed pre-show check. Backup in use.',
-                        createdAt: new Date(Date.now() - 3600000).toISOString(),
-                        resolved: false
-                    }
-                ];
+                // Load issues
+                const issueRows = await FieldOpsDB.loadIssues();
+                issues = issueRows.map(i => ({
+                    id: i.id,
+                    venueId: i.venue_id,
+                    title: i.issue_type,
+                    description: i.description,
+                    createdAt: i.reported_at,
+                    resolved: i.status === 'resolved',
+                    resolvedAt: i.resolved_at
+                }));
                 
-                saveData();
+                updateSyncStatusUI(true);
+                console.log('[Field Ops] ✅ Loaded from Supabase: staff=' + staff.length + ' checkins=' + checkinRows.length + ' tasks=' + taskRows.length + ' issues=' + issueRows.length);
+            } catch (e) {
+                console.error('[Field Ops] Supabase load failed, using localStorage:', e);
+                staff = JSON.parse(localStorage.getItem('fieldops-staff') || '[]');
+                checkIns = JSON.parse(localStorage.getItem('fieldops-checkins') || '{}');
+                taskCompletions = JSON.parse(localStorage.getItem('fieldops-tasks') || '{}');
+                issues = JSON.parse(localStorage.getItem('fieldops-issues') || '[]');
+                updateSyncStatusUI(false);
             }
+            
+            // Map staff from Supabase format to local format
+            staff = staff.map(s => ({
+                id: s.id,
+                name: s.name,
+                phone: s.phone || '',
+                role: s.role || 'build-lead',
+                venueId: s.venue_id || 'katy',
+                createdAt: s.created_at
+            }));
+            
+            // Seed demo data if DB is empty
+            if (staff.length === 0) {
+                const demoStaff = [
+                    { name: 'Mike Rodriguez', phone: '(832) 555-0101', role: 'build-lead', venueId: 'katy' },
+                    { name: 'Sarah Chen', phone: '(210) 555-0102', role: 'build-lead', venueId: 'selma' },
+                    { name: 'James Wilson', phone: '(817) 555-0103', role: 'build-lead', venueId: 'arlington' },
+                    { name: 'Alex Turner', phone: '(832) 555-0201', role: 'show-tech', venueId: 'katy' },
+                    { name: 'Maria Santos', phone: '(210) 555-0202', role: 'show-tech', venueId: 'selma' }
+                ];
+                for (const s of demoStaff) await FieldOpsDB.addStaff(s);
+                staff = await FieldOpsDB.loadStaff();
+                staff = staff.map(s => ({ id: s.id, name: s.name, phone: s.phone || '', role: s.role, venueId: s.venue_id, createdAt: s.created_at }));
+            }
+            
+            saveData();
+            renderDashboard();
+            
+            // Poll for updates every 15s
+            setInterval(async () => {
+                try {
+                    const today = getTodayKey();
+                    const taskRows = await FieldOpsDB.loadTasks(today);
+                    taskCompletions[today] = {};
+                    taskRows.forEach(t => {
+                        taskCompletions[today][`${t.venue_id}-${t.task_id}`] = { completedAt: t.completed_at, completedBy: t.completed_by };
+                    });
+                    const issueRows = await FieldOpsDB.loadIssues();
+                    issues = issueRows.map(i => ({ id: i.id, venueId: i.venue_id, title: i.issue_type, description: i.description, createdAt: i.reported_at, resolved: i.status === 'resolved' }));
+                    renderDashboard();
+                    if (currentVenue) renderChecklist(currentVenue);
+                } catch (e) { /* silent polling failure */ }
+            }, 15000);
         }
         
         // Shake animation CSS
@@ -1796,6 +1854,12 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Fix: userName element for demo mode
+        if (!document.getElementById('userName')) {
+            const badge = document.querySelector('.user-badge');
+            if (badge) { badge.id = 'userName'; }
+        }
         
         init();
     </script>
