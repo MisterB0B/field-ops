@@ -7,11 +7,12 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0a0a0f">
     <!-- Unified Cloud Sync & Permissions -->
-    <script src="https://thelightparkops.com/shared/cloud-sync.js"></script>
-    <script src="https://thelightparkops.com/shared/supabase-auth.js?v=20260211f"></script>
-    <script src="https://thelightparkops.com/shared/activity-logger.js?v=20260211f"></script>
-    <script src="https://thelightparkops.com/shared/auth-gate.js?v=20260211f" data-app="Field Ops" data-icon="🔧"></script>
-    <script src="https://thelightparkops.com/shared/permissions.js"></script>
+    <script src="/shared/cloud-sync.js?v=20260211h"></script>
+    <script src="/shared/supabase-auth.js?v=20260211f"></script>
+    <script src="/shared/activity-logger.js?v=20260211f"></script>
+    <script src="/shared/auth-gate.js?v=20260211f" data-app="Field Ops" data-icon="🔧"></script>
+    <script src="/shared/permissions.js?v=20260211h"></script>
+    <script src="/shared/supabase-storage.js?v=20260211h"></script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
@@ -795,7 +796,6 @@
             <div class="header-top">
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <a href="https://thelightparkops.com" style="color: #a855f7; text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.color='#06d6a0'" onmouseout="this.style.color='#a855f7'">
-                        ← Dashboard
                     </a>
                     <h1 class="header-title">📋 Field Ops</h1>
                 </div>
@@ -1072,11 +1072,20 @@
         // ═══════════════════════════════════════════════════════════════
         const SUPABASE_URL = 'https://gwjtfcrgpxclixonogpe.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3anRmY3JncHhjbGl4b25vZ3BlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMzQzOTUsImV4cCI6MjA4NTkxMDM5NX0.qM1-_VA1Dsx_nsWkeoAJvNWNgSuuwApPBGoJU32X3-I';
-        const SB_HEADERS = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' };
-        const SB_HEADERS_RO = { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY };
+        
+        // Get auth headers using user's session token from auth-gate
+        function getSBHeaders(withBody = false) {
+          const authToken = window.lpAuth?.session?.access_token || SUPABASE_KEY;
+          const hdrs = {
+            apikey: SUPABASE_KEY,  // Always needed for Supabase
+            Authorization: 'Bearer ' + authToken  // User token for RLS
+          };
+          if (withBody) hdrs['Content-Type'] = 'application/json';
+          return hdrs;
+        }
 
         async function sbFetch(path, opts = {}) {
-          const hdrs = opts.body ? { ...SB_HEADERS, ...(opts.extraHeaders || {}) } : SB_HEADERS_RO;
+          const hdrs = { ...getSBHeaders(!!opts.body), ...(opts.extraHeaders || {}) };
           delete opts.extraHeaders;
           const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: hdrs, ...opts });
           if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
@@ -1101,10 +1110,11 @@
           async loadStaff() {
             try {
               const rows = await sbFetch('field_ops_staff?select=*&order=created_at.asc');
+              // Cache to localStorage after successful cloud load
               localStorage.setItem('fo_staff', JSON.stringify(rows));
               return rows;
             } catch (e) {
-              console.error('[FO] loadStaff:', e);
+              console.warn('[FO] loadStaff failed, using cache:', e);
               return JSON.parse(localStorage.getItem('fo_staff') || '[]');
             }
           },
@@ -1112,10 +1122,11 @@
             const row = { name: s.name, phone: s.phone, role: s.role, venue_id: s.venueId };
             try {
               await sbFetch('field_ops_staff', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              console.log('[Field Ops] ☁️ Staff added to cloud');
               foShowToast('☁️ Staff added', 'success', 2000);
               return true;
             } catch (e) {
-              console.error('[FO] addStaff:', e);
+              console.error('[Field Ops] ⚠️ Cloud save failed:', e);
               foShowToast('⚠️ Save failed, stored locally', 'warning');
               return false;
             }
@@ -1126,9 +1137,11 @@
             date = date || new Date().toISOString().split('T')[0];
             try {
               const rows = await sbFetch(`field_ops_checkins?check_in_time=gte.${date}T00:00:00&check_in_time=lt.${date}T23:59:59&select=*`);
+              // Cache to localStorage after successful cloud load
               localStorage.setItem('fo_checkins_' + date, JSON.stringify(rows));
               return rows;
             } catch (e) {
+              console.warn('[FO] loadCheckins failed, using cache:', e);
               return JSON.parse(localStorage.getItem('fo_checkins_' + date) || '[]');
             }
           },
@@ -1136,8 +1149,12 @@
             const row = { venue_id, employee_id, employee_name, role, check_in_time: new Date().toISOString(), notes: gpsData ? `GPS: ${gpsData.lat},${gpsData.lng}` : '' };
             try {
               await sbFetch('field_ops_checkins', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              console.log('[Field Ops] ☁️ Check-in saved:', employee_name);
               return true;
-            } catch (e) { console.error('[FO] checkIn:', e); return false; }
+            } catch (e) {
+              console.error('[Field Ops] ⚠️ Check-in failed:', e);
+              return false;
+            }
           },
 
           // ── Tasks ──
@@ -1145,9 +1162,11 @@
             date = date || new Date().toISOString().split('T')[0];
             try {
               const rows = await sbFetch(`field_ops_tasks?completed_at=gte.${date}T00:00:00&completed_at=lt.${date}T23:59:59&select=*`);
+              // Cache to localStorage after successful cloud load
               localStorage.setItem('fo_tasks_' + date, JSON.stringify(rows));
               return rows;
             } catch (e) {
+              console.warn('[FO] loadTasks failed, using cache:', e);
               return JSON.parse(localStorage.getItem('fo_tasks_' + date) || '[]');
             }
           },
@@ -1155,23 +1174,33 @@
             const row = { venue_id, task_id, mode, completed_by, completed_at: new Date().toISOString() };
             try {
               await sbFetch('field_ops_tasks', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              console.log('[Field Ops] ☁️ Task completed:', task_id);
               return true;
-            } catch (e) { console.error('[FO] completeTask:', e); return false; }
+            } catch (e) { 
+              console.error('[Field Ops] ⚠️ Task save failed:', e);
+              return false;
+            }
           },
           async uncompleteTask(venue_id, task_id, mode) {
             try {
               await sbFetch(`field_ops_tasks?venue_id=eq.${venue_id}&task_id=eq.${task_id}&mode=eq.${mode}`, { method: 'DELETE' });
+              console.log('[Field Ops] ☁️ Task uncompleted:', task_id);
               return true;
-            } catch (e) { console.error('[FO] uncompleteTask:', e); return false; }
+            } catch (e) {
+              console.error('[Field Ops] ⚠️ Task uncomplete failed:', e);
+              return false;
+            }
           },
 
           // ── Issues ──
           async loadIssues() {
             try {
               const rows = await sbFetch('field_ops_issues?select=*&order=reported_at.desc');
+              // Cache to localStorage after successful cloud load
               localStorage.setItem('fo_issues', JSON.stringify(rows));
               return rows;
             } catch (e) {
+              console.warn('[FO] loadIssues failed, using cache:', e);
               return JSON.parse(localStorage.getItem('fo_issues') || '[]');
             }
           },
@@ -1179,15 +1208,24 @@
             const row = { venue_id: issue.venueId, issue_type: issue.type || 'general', description: issue.description, priority: issue.priority || 'medium', reported_by: issue.reportedBy, status: 'open', reported_at: new Date().toISOString() };
             try {
               await sbFetch('field_ops_issues', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
+              console.log('[Field Ops] ☁️ Issue reported');
               foShowToast('☁️ Issue reported', 'success', 2000);
               return true;
-            } catch (e) { foShowToast('⚠️ Failed to save issue', 'error'); return false; }
+            } catch (e) {
+              console.error('[Field Ops] ⚠️ Issue save failed:', e);
+              foShowToast('⚠️ Failed to save issue', 'error');
+              return false;
+            }
           },
           async resolveIssue(id, resolvedBy, notes) {
             try {
               await sbFetch(`field_ops_issues?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved', resolved_at: new Date().toISOString(), resolution_notes: notes || '', updated_at: new Date().toISOString() }) });
+              console.log('[Field Ops] ☁️ Issue resolved:', id);
               return true;
-            } catch (e) { return false; }
+            } catch (e) {
+              console.error('[Field Ops] ⚠️ Issue resolve failed:', e);
+              return false;
+            }
           }
         };
 
@@ -1614,9 +1652,37 @@
                 // Remove from Supabase
                 await FieldOpsDB.uncompleteTask(venueId, taskId, currentMode);
             } else {
+                // TODO: If task requires photo (task.photo === true), prompt for photo upload:
+                // 
+                // const task = getVenueTasks(venueId).find(t => t.id === taskId);
+                // if (task && task.photo) {
+                //   const photoUrl = await promptForPhoto(venueId, taskId);
+                //   if (!photoUrl) {
+                //     alert('Photo required to complete this task');
+                //     return;
+                //   }
+                //   // Store photoUrl in database with task completion
+                // }
+                //
+                // Example implementation:
+                // async function promptForPhoto(venueId, taskId) {
+                //   return new Promise((resolve) => {
+                //     const input = SupabaseStorage.createPhotoInput('field-ops-photos', resolve, {
+                //       compress: true,
+                //       path: `${new Date().toISOString().split('T')[0]}/${venueId}/${taskId}-${Date.now()}.jpg`,
+                //       onStart: () => alert('📸 Compressing photo...'),
+                //       onError: (err) => { alert('Photo upload failed: ' + err.message); resolve(null); }
+                //     });
+                //     document.body.appendChild(input);
+                //     input.click();
+                //     setTimeout(() => input.remove(), 1000);
+                //   });
+                // }
+                
                 taskCompletions[today][key] = {
                     completedAt: new Date().toISOString(),
                     completedBy: currentUser ? currentUser.name : 'User'
+                    // photo_url: photoUrl  // Add when photo upload is implemented
                 };
                 // Save to Supabase
                 await FieldOpsDB.completeTask(venueId, taskId, currentMode, currentUser ? currentUser.name : 'User');
@@ -1750,8 +1816,9 @@
             }
             showApp();
 
-            // Load all data from Supabase proper tables
+            // Cloud-first: Load all data from Supabase proper tables
             try {
+                console.log('[Field Ops] 🔄 Loading from cloud...');
                 staff = await FieldOpsDB.loadStaff();
                 
                 // Load today's checkins and convert to legacy format
@@ -1789,15 +1856,23 @@
                     resolvedAt: i.resolved_at
                 }));
                 
+                // Cache to localStorage for offline access
+                localStorage.setItem('fo_staff', JSON.stringify(staff));
+                localStorage.setItem('fo_checkins_' + today, JSON.stringify(checkinRows));
+                localStorage.setItem('fo_tasks_' + today, JSON.stringify(taskRows));
+                localStorage.setItem('fo_issues', JSON.stringify(issueRows));
+                
                 updateSyncStatusUI(true);
-                console.log('[Field Ops] ✅ Loaded from Supabase: staff=' + staff.length + ' checkins=' + checkinRows.length + ' tasks=' + taskRows.length + ' issues=' + issueRows.length);
+                console.log('[Field Ops] ☁️✓ Loaded from cloud: staff=' + staff.length + ', checkins=' + checkinRows.length + ', tasks=' + taskRows.length + ', issues=' + issueRows.length);
             } catch (e) {
-                console.error('[Field Ops] Supabase load failed, using localStorage:', e);
-                staff = JSON.parse(localStorage.getItem('fieldops-staff') || '[]');
+                console.error('[Field Ops] ⚠️ Cloud load failed, using localStorage fallback:', e);
+                // Fallback to localStorage cache
+                staff = JSON.parse(localStorage.getItem('fo_staff') || localStorage.getItem('fieldops-staff') || '[]');
                 checkIns = JSON.parse(localStorage.getItem('fieldops-checkins') || '{}');
                 taskCompletions = JSON.parse(localStorage.getItem('fieldops-tasks') || '{}');
                 issues = JSON.parse(localStorage.getItem('fieldops-issues') || '[]');
                 updateSyncStatusUI(false);
+                console.log('[Field Ops] 💾 Loaded from localStorage cache');
             }
             
             // Map staff from Supabase format to local format
@@ -1863,5 +1938,6 @@
         
         init();
     </script>
+<script src="/shared/back-to-dashboard.js"></script>
 </body>
 </html>
