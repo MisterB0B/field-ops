@@ -756,6 +756,8 @@
         
         .logout-btn:hover { color: var(--status-red); }
     </style>
+    <!-- Supabase JS Client for Realtime -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
     <!-- Login Screen (hidden in demo mode) -->
@@ -869,6 +871,50 @@
             </div>
         </div>
         
+        <!-- Team Activity View -->
+        <div class="dashboard" id="activityView" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 class="section-title" style="margin:0;">📡 Team Activity</h3>
+                <button onclick="loadTeamActivity()" style="background:var(--bg-card);border:1px solid var(--border);color:var(--accent-teal);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">↻ Refresh</button>
+            </div>
+            <p id="activityLastUpdated" style="font-size:11px;color:var(--text-secondary);margin-bottom:16px;"></p>
+
+            <!-- CAD Draftsman Section -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+                <h4 style="font-size:15px;font-weight:700;margin-bottom:4px;">📐 CAD DRAFTSMAN <span style="color:var(--text-secondary);font-weight:400;font-size:12px;">(This Week)</span></h4>
+                <div id="cadActivityStats" style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;"></div>
+                <div id="cadActivityList" style="color:var(--text-secondary);font-size:13px;">Loading...</div>
+            </div>
+
+            <!-- Shop Manager Progress Section -->
+            <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;">
+                <h4 style="font-size:15px;font-weight:700;margin-bottom:12px;">🔧 SHOP MANAGER PROGRESS</h4>
+                
+                <!-- Today's Tasks -->
+                <div style="margin-bottom:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <h5 style="font-size:14px;font-weight:600;">📋 TODAY'S TASKS <span id="shopTodayCount" style="color:var(--text-secondary);font-weight:400;font-size:12px;"></span></h5>
+                    </div>
+                    <div id="shopTodayList" style="color:var(--text-secondary);font-size:13px;">Loading...</div>
+                </div>
+                
+                <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+                
+                <!-- Completed Tasks -->
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                        <h5 style="font-size:14px;font-weight:600;">✅ COMPLETED TASKS <span id="shopCompletedCount" style="color:var(--text-secondary);font-weight:400;font-size:12px;"></span></h5>
+                        <div id="shopDateFilters" style="display:flex;gap:6px;">
+                            <button onclick="setShopFilter('week')" class="shop-filter-btn" data-filter="week" style="background:rgba(168,85,247,0.2);color:var(--accent-purple);border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">This Week</button>
+                            <button onclick="setShopFilter('month')" class="shop-filter-btn" data-filter="month" style="background:var(--bg-secondary);color:var(--text-secondary);border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">This Month</button>
+                            <button onclick="setShopFilter('all')" class="shop-filter-btn" data-filter="all" style="background:var(--bg-secondary);color:var(--text-secondary);border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">All Time</button>
+                        </div>
+                    </div>
+                    <div id="shopCompletedList" style="color:var(--text-secondary);font-size:13px;">Loading...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Bottom Nav -->
         <nav class="bottom-nav">
             <button class="nav-btn active" onclick="switchTab('dashboard')">
@@ -883,9 +929,9 @@
                 <span style="font-size: 20px;">✅</span>
                 <span>Tasks</span>
             </button>
-            <button class="nav-btn" onclick="switchTab('reports')">
-                <span style="font-size: 20px;">📈</span>
-                <span>Reports</span>
+            <button class="nav-btn" onclick="switchTab('activity')">
+                <span style="font-size: 20px;">📡</span>
+                <span>Activity</span>
             </button>
         </nav>
     </div>
@@ -1121,6 +1167,7 @@
           async addStaff(s) {
             const row = { name: s.name, phone: s.phone, role: s.role, venue_id: s.venueId };
             try {
+              if (window._suppressFieldOpsRealtime) window._suppressFieldOpsRealtime();
               await sbFetch('field_ops_staff', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
               console.log('[Field Ops] ☁️ Staff added to cloud');
               foShowToast('☁️ Staff added', 'success', 2000);
@@ -1148,6 +1195,7 @@
           async checkIn(employee_id, employee_name, venue_id, role, gpsData) {
             const row = { venue_id, employee_id, employee_name, role, check_in_time: new Date().toISOString(), notes: gpsData ? `GPS: ${gpsData.lat},${gpsData.lng}` : '' };
             try {
+              if (window._suppressFieldOpsRealtime) window._suppressFieldOpsRealtime();
               await sbFetch('field_ops_checkins', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
               console.log('[Field Ops] ☁️ Check-in saved:', employee_name);
               return true;
@@ -1173,6 +1221,7 @@
           async completeTask(venue_id, task_id, mode, completed_by) {
             const row = { venue_id, task_id, mode, completed_by, completed_at: new Date().toISOString() };
             try {
+              if (window._suppressFieldOpsRealtime) window._suppressFieldOpsRealtime();
               await sbFetch('field_ops_tasks', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
               console.log('[Field Ops] ☁️ Task completed:', task_id);
               return true;
@@ -1183,6 +1232,7 @@
           },
           async uncompleteTask(venue_id, task_id, mode) {
             try {
+              if (window._suppressFieldOpsRealtime) window._suppressFieldOpsRealtime();
               await sbFetch(`field_ops_tasks?venue_id=eq.${venue_id}&task_id=eq.${task_id}&mode=eq.${mode}`, { method: 'DELETE' });
               console.log('[Field Ops] ☁️ Task uncompleted:', task_id);
               return true;
@@ -1207,6 +1257,7 @@
           async addIssue(issue) {
             const row = { venue_id: issue.venueId, issue_type: issue.type || 'general', description: issue.description, priority: issue.priority || 'medium', reported_by: issue.reportedBy, status: 'open', reported_at: new Date().toISOString() };
             try {
+              if (window._suppressFieldOpsRealtime) window._suppressFieldOpsRealtime();
               await sbFetch('field_ops_issues', { method: 'POST', body: JSON.stringify(row), extraHeaders: { Prefer: 'return=minimal' } });
               console.log('[Field Ops] ☁️ Issue reported');
               foShowToast('☁️ Issue reported', 'success', 2000);
@@ -1219,6 +1270,7 @@
           },
           async resolveIssue(id, resolvedBy, notes) {
             try {
+              if (window._suppressFieldOpsRealtime) window._suppressFieldOpsRealtime();
               await sbFetch(`field_ops_issues?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved', resolved_at: new Date().toISOString(), resolution_notes: notes || '', updated_at: new Date().toISOString() }) });
               console.log('[Field Ops] ☁️ Issue resolved:', id);
               return true;
@@ -1797,13 +1849,210 @@
         // Shared employees now loaded directly from field_ops_staff Supabase table
         
         function switchTab(tab) {
-            // Update nav buttons
             document.querySelectorAll('.nav-btn').forEach((btn, i) => {
-                btn.classList.toggle('active', ['dashboard', 'staff', 'tasks', 'reports'][i] === tab);
+                btn.classList.toggle('active', ['dashboard', 'staff', 'tasks', 'activity'][i] === tab);
             });
             
-            // For now, all tabs show dashboard - can expand later
-            showDashboard();
+            document.getElementById('dashboardView').style.display = tab === 'activity' ? 'none' : 'block';
+            document.getElementById('activityView').style.display = tab === 'activity' ? 'block' : 'none';
+            document.getElementById('venueDetailView').classList.remove('active');
+            
+            if (tab === 'activity') {
+                loadTeamActivity();
+            } else {
+                showDashboard();
+            }
+        }
+
+        // ========== TEAM ACTIVITY ==========
+        let _activityAutoRefresh = null;
+
+        async function loadTeamActivity() {
+            document.getElementById('activityLastUpdated').textContent = 'Updating...';
+            await Promise.all([loadCADActivity(), loadShopActivity()]);
+            document.getElementById('activityLastUpdated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+            
+            // Auto-refresh every 5 min
+            clearInterval(_activityAutoRefresh);
+            _activityAutoRefresh = setInterval(loadTeamActivity, 300000);
+        }
+
+        async function loadCADActivity() {
+            const listEl = document.getElementById('cadActivityList');
+            const statsEl = document.getElementById('cadActivityStats');
+            try {
+                const rows = await sbFetch("app_data?app_name=eq.prop-bible&select=data");
+                if (!rows || !rows.length) { listEl.innerHTML = '<em>No prop bible data found</em>'; return; }
+                
+                const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                const byDraftsman = {};
+                let totalDeliverables = 0;
+                let propsFullyDocumented = 0;
+
+                for (const row of rows) {
+                    const props = row.data?.props || [];
+                    for (const prop of props) {
+                        let propHasAllDocs = true;
+                        const deliverables = prop.deliverables || [];
+                        if (deliverables.length === 0) propHasAllDocs = false;
+                        
+                        for (const del of deliverables) {
+                            const entries = del.time_entries || [];
+                            for (const entry of entries) {
+                                const entryDate = new Date(entry.date || entry.created_at);
+                                if (entryDate >= sevenDaysAgo) {
+                                    const user = entry.user || entry.draftsman || 'Unknown';
+                                    if (!byDraftsman[user]) byDraftsman[user] = { hours: 0, items: [] };
+                                    byDraftsman[user].hours += parseFloat(entry.hours || 0);
+                                    byDraftsman[user].items.push({
+                                        type: del.type || del.name || 'Deliverable',
+                                        prop: prop.name || prop.prop_name || 'Unknown Prop',
+                                        hours: parseFloat(entry.hours || 0),
+                                        date: entryDate
+                                    });
+                                    totalDeliverables++;
+                                }
+                            }
+                            if (!del.file_url && !del.completed) propHasAllDocs = false;
+                        }
+                        if (propHasAllDocs && deliverables.length > 0) propsFullyDocumented++;
+                    }
+                }
+
+                // Stats
+                statsEl.innerHTML = `
+                    <span style="background:rgba(168,85,247,0.15);color:var(--accent-purple);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;">${propsFullyDocumented} Props Documented</span>
+                    <span style="background:rgba(6,214,160,0.15);color:var(--accent-teal);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;">${totalDeliverables} Deliverables This Week</span>
+                `;
+
+                if (Object.keys(byDraftsman).length === 0) {
+                    listEl.innerHTML = '<em>No time entries in the last 7 days</em>';
+                    return;
+                }
+
+                let html = '';
+                for (const [name, data] of Object.entries(byDraftsman).sort((a,b) => b[1].hours - a[1].hours)) {
+                    html += `<div style="margin-bottom:14px;">
+                        <div style="color:var(--text-primary);font-weight:600;font-size:14px;margin-bottom:6px;">${name} — <span style="color:var(--accent-teal);">${data.hours.toFixed(1)} hrs</span></div>`;
+                    for (const item of data.items.slice(0, 8)) {
+                        html += `<div style="padding:2px 0 2px 12px;border-left:2px solid var(--border);">• ${item.type} for <span style="color:var(--accent-purple);">${item.prop}</span> <span style="opacity:0.5">(${item.hours}h)</span></div>`;
+                    }
+                    if (data.items.length > 8) html += `<div style="padding:2px 0 2px 12px;opacity:0.5;">+ ${data.items.length - 8} more...</div>`;
+                    html += '</div>';
+                }
+                listEl.innerHTML = html;
+            } catch (e) {
+                console.error('[Activity] CAD load error:', e);
+                listEl.innerHTML = '<em style="color:var(--status-red);">Failed to load CAD activity</em>';
+            }
+        }
+
+        let _shopFilter = 'week';
+        let _shopCompletedCache = [];
+
+        function setShopFilter(filter) {
+            _shopFilter = filter;
+            document.querySelectorAll('.shop-filter-btn').forEach(btn => {
+                const active = btn.dataset.filter === filter;
+                btn.style.background = active ? 'rgba(168,85,247,0.2)' : 'var(--bg-secondary)';
+                btn.style.color = active ? 'var(--accent-purple)' : 'var(--text-secondary)';
+            });
+            renderShopCompleted(_shopCompletedCache);
+        }
+
+        async function loadShopActivity() {
+            // Load today's tasks (not completed)
+            const todayEl = document.getElementById('shopTodayList');
+            const completedEl = document.getElementById('shopCompletedList');
+            try {
+                const [pendingRows, completedRows] = await Promise.all([
+                    sbFetch('shop_tasks?status=neq.completed&select=*&order=priority.asc,created_at.desc'),
+                    sbFetch('shop_tasks?status=eq.completed&select=*&order=completed_at.desc&limit=200')
+                ]);
+
+                // --- Today's Tasks ---
+                const pending = pendingRows || [];
+                document.getElementById('shopTodayCount').textContent = `(${pending.length})`;
+                
+                if (pending.length === 0) {
+                    todayEl.innerHTML = '<em>No pending tasks 🎉</em>';
+                } else {
+                    const priorityOrder = { high: 0, mid: 1, medium: 1, low: 2 };
+                    const priorityEmoji = { high: '🔴', mid: '🟡', medium: '🟡', low: '🟢' };
+                    const sorted = [...pending].sort((a, b) => (priorityOrder[(a.priority||'low').toLowerCase()] || 2) - (priorityOrder[(b.priority||'low').toLowerCase()] || 2));
+                    
+                    let html = '';
+                    let lastPriority = null;
+                    for (const t of sorted) {
+                        const p = (t.priority || 'low').toLowerCase();
+                        const emoji = priorityEmoji[p] || '⚪';
+                        const pLabel = p.toUpperCase();
+                        if (p !== lastPriority) {
+                            if (lastPriority !== null) html += '<div style="height:8px;"></div>';
+                            lastPriority = p;
+                        }
+                        const assignee = t.assigned_to ? `<span style="opacity:0.5;font-size:11px;"> → ${t.assigned_to}</span>` : '';
+                        const statusColor = t.status === 'in_progress' ? 'var(--status-yellow)' : 'var(--text-secondary)';
+                        const statusLabel = t.status === 'in_progress' ? '⏳ In Progress' : t.status || 'pending';
+                        html += `<div style="padding:6px 0 6px 12px;border-left:3px solid ${p === 'high' ? 'var(--status-red)' : p === 'mid' || p === 'medium' ? 'var(--status-yellow)' : 'var(--border)'};">
+                            ${emoji} <strong>${pLabel}:</strong> ${t.task_name || t.title || 'Task'}${assignee}
+                            <span style="color:${statusColor};font-size:11px;margin-left:6px;">${statusLabel}</span>
+                        </div>`;
+                    }
+                    todayEl.innerHTML = html;
+                }
+
+                // --- Completed Tasks ---
+                _shopCompletedCache = completedRows || [];
+                document.getElementById('shopCompletedCount').textContent = `(${_shopCompletedCache.length}${_shopCompletedCache.length >= 200 ? '+' : ''})`;
+                renderShopCompleted(_shopCompletedCache);
+            } catch (e) {
+                console.error('[Activity] Shop load error:', e);
+                todayEl.innerHTML = '<em style="color:var(--status-red);">Failed to load tasks</em>';
+                completedEl.innerHTML = '<em style="color:var(--status-red);">Failed to load completed tasks</em>';
+            }
+        }
+
+        function renderShopCompleted(rows) {
+            const el = document.getElementById('shopCompletedList');
+            if (!rows || !rows.length) { el.innerHTML = '<em>No completed tasks</em>'; return; }
+
+            // Filter by date
+            const now = new Date();
+            let filtered = rows;
+            if (_shopFilter === 'week') {
+                const start = new Date(now); start.setDate(start.getDate() - 7);
+                filtered = rows.filter(t => new Date(t.completed_at) >= start);
+            } else if (_shopFilter === 'month') {
+                const start = new Date(now); start.setMonth(start.getMonth() - 1);
+                filtered = rows.filter(t => new Date(t.completed_at) >= start);
+            }
+
+            if (filtered.length === 0) { el.innerHTML = '<em>No completed tasks in this period</em>'; return; }
+
+            // Group by day
+            const byDay = {};
+            for (const task of filtered) {
+                const day = new Date(task.completed_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                if (!byDay[day]) byDay[day] = [];
+                byDay[day].push(task);
+            }
+
+            let html = '';
+            for (const [day, tasks] of Object.entries(byDay)) {
+                html += `<div style="margin-bottom:14px;">
+                    <div style="color:var(--text-primary);font-weight:600;font-size:13px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">${day} <span style="opacity:0.4;">(${tasks.length})</span></div>`;
+                for (const t of tasks.slice(0, 15)) {
+                    const time = new Date(t.completed_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    html += `<div style="padding:3px 0 3px 12px;border-left:2px solid var(--accent-teal);">
+                        ✅ ${t.task_name || t.title || 'Task'}
+                        <span style="opacity:0.4;font-size:11px;"> — ${t.completed_by || 'Unknown'} @ ${time}</span>
+                    </div>`;
+                }
+                if (tasks.length > 15) html += `<div style="padding:2px 0 2px 12px;opacity:0.5;">+ ${tasks.length - 15} more...</div>`;
+                html += '</div>';
+            }
+            el.innerHTML = html;
         }
         
         // ========== INIT ==========
@@ -1937,6 +2186,70 @@
         }
         
         init();
+        
+        // ═══════════════════════════════════════════════════════════
+        // REALTIME SUBSCRIPTIONS
+        // ═══════════════════════════════════════════════════════════
+        (function initRealtime() {
+            if (!window.supabase || !window.supabase.createClient) {
+                setTimeout(initRealtime, 500);
+                return;
+            }
+            
+            const SUPABASE_URL = 'https://gwjtfcrgpxclixonogpe.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3anRmY3JncHhjbGl4b25vZ3BlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMzQzOTUsImV4cCI6MjA4NTkxMDM5NX0.qM1-_VA1Dsx_nsWkeoAJvNWNgSuuwApPBGoJU32X3-I';
+            const rtClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            let suppressUntil = 0;
+            let debounceTimer = null;
+            
+            function handleRealtimeChange(payload) {
+                if (Date.now() < suppressUntil) {
+                    console.log('[Realtime] Suppressing own change echo');
+                    return;
+                }
+                
+                console.log('[Realtime] Change detected:', payload.table, payload.eventType);
+                
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(async () => {
+                    // Reload the relevant data section
+                    try {
+                        if (payload.table === 'field_ops_staff') {
+                            await loadStaff();
+                        } else if (payload.table === 'field_ops_checkins') {
+                            await loadCheckIns();
+                        } else if (payload.table === 'field_ops_tasks') {
+                            await loadTasks();
+                        } else if (payload.table === 'field_ops_issues') {
+                            await loadIssues();
+                        }
+                        renderCurrentTab();
+                        showToast('🔄 Data updated from another device');
+                    } catch (e) {
+                        console.error('[Realtime] Reload failed:', e);
+                    }
+                }, 500);
+            }
+            
+            rtClient
+                .channel('field-ops-sync')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'field_ops_staff' }, handleRealtimeChange)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'field_ops_checkins' }, handleRealtimeChange)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'field_ops_tasks' }, handleRealtimeChange)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'field_ops_issues' }, handleRealtimeChange)
+                .subscribe((status) => {
+                    console.log('[Realtime] Subscription status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        showToast('🔴 Live sync active');
+                    }
+                });
+                
+            console.log('[Field Ops] Realtime subscriptions initialized');
+            
+            // Suppress own changes for 3s after mutations
+            window._suppressFieldOpsRealtime = () => { suppressUntil = Date.now() + 3000; };
+        })();
     </script>
 <script src="/shared/back-to-dashboard.js"></script>
 </body>
